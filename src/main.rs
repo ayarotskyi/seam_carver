@@ -1,6 +1,8 @@
+use rayon::prelude::*;
 use std::{
+    env,
     sync::{mpsc, Arc, RwLock},
-    thread,
+    thread, vec,
 };
 
 use macroquad::prelude::*;
@@ -12,6 +14,7 @@ struct WindowSize {
 
 #[macroquad::main("Texture")]
 async fn main() {
+    env::set_var("RUST_BACKTRACE", "1");
     let window_size = Arc::new(RwLock::new(WindowSize {
         height: screen_height() as usize,
         width: screen_width() as usize,
@@ -20,31 +23,33 @@ async fn main() {
     let image = Arc::new(RwLock::new(load_image("ferris.png").await.unwrap()));
     let edited_image = image.clone();
 
-    let (tx, rx) = mpsc::channel::<Box<Image>>();
+    grayscale(&image);
+
+    let (image_sender, image_receiver) = mpsc::channel::<Box<Image>>();
 
     let image_clone = Arc::clone(&image);
     let edited_image_clone = Arc::clone(&edited_image);
     let window_size_clone = Arc::clone(&window_size);
     thread::spawn(move || loop {
-        let read_guard = edited_image_clone.read().unwrap();
+        let edited_image_read_guard = edited_image_clone.read().unwrap();
         let window_size_read_guard = window_size_clone.read().unwrap();
         let window_size_clone = window_size_read_guard.clone();
         drop(window_size_read_guard);
-        let image = if read_guard.height() < window_size_clone.height
-            || read_guard.width() < window_size_clone.width
+        let image = if edited_image_read_guard.height() < window_size_clone.height
+            || edited_image_read_guard.width() < window_size_clone.width
         {
             &image_clone
         } else {
             &edited_image_clone
         };
-        drop(read_guard);
+        drop(edited_image_read_guard);
 
         let image_read_guard = image.read().unwrap();
         let mut image_clone = image_read_guard.clone();
         drop(image_read_guard);
 
         seam_carving(&mut image_clone, &window_size_clone);
-        let _ = tx.send(Box::new(image_clone));
+        let _ = image_sender.send(Box::new(image_clone));
     });
 
     loop {
@@ -68,7 +73,7 @@ async fn main() {
             Err(_) => {}
         }
 
-        match rx.try_recv() {
+        match image_receiver.try_recv() {
             Ok(image) => {
                 let mut edited_image_write_guard = edited_image.write().unwrap();
                 *edited_image_write_guard = *image;
@@ -90,7 +95,7 @@ async fn main() {
         }
 
         draw_text(
-            format!("{}", get_fps()).as_str(),
+            &get_fps().to_string(),
             0.0,
             32.0,
             32.0,
@@ -115,4 +120,22 @@ fn seam_carving(image: &mut Image, window_size: &WindowSize) {
             )
         }
     }
+}
+
+fn grayscale(image: &RwLock<Image>) -> Vec<Vec<f32>> {
+    let image_read_guard = image.read().unwrap();
+
+    let mut result = vec![vec![0.0; image_read_guard.height()]; image_read_guard.width()];
+
+    result
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(column, vector)| {
+            vector.iter_mut().enumerate().for_each(|(row, value)| {
+                let color = image_read_guard.get_pixel(column as u32, row as u32);
+                *value = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
+            })
+        });
+
+    result
 }
