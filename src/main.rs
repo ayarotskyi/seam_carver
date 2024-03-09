@@ -23,7 +23,7 @@ async fn main() {
     let image = Arc::new(RwLock::new(load_image("ferris.png").await.unwrap()));
     let edited_image = image.clone();
 
-    grayscale(&image);
+    let energy_matrix = gradient_magnitude(&grayscale(&image));
 
     let (image_sender, image_receiver) = mpsc::channel::<Box<Image>>();
 
@@ -48,7 +48,7 @@ async fn main() {
         let mut image_clone = image_read_guard.clone();
         drop(image_read_guard);
 
-        seam_carving(&mut image_clone, &window_size_clone);
+        seam_carving(&mut image_clone, &window_size_clone, &energy_matrix);
         let _ = image_sender.send(Box::new(image_clone));
     });
 
@@ -105,18 +105,13 @@ async fn main() {
     }
 }
 
-fn seam_carving(image: &mut Image, window_size: &WindowSize) {
+fn seam_carving(image: &mut Image, window_size: &WindowSize, energy_matrix: &Vec<Vec<f32>>) {
     for i in 0..image.width() {
         for j in 0..image.height() {
             image.set_pixel(
                 i.try_into().unwrap(),
                 j.try_into().unwrap(),
-                Color::new(
-                    rand::rand() as f32 / u32::MAX as f32,
-                    window_size.height as f32 / window_size.width as f32,
-                    0.0,
-                    100.0,
-                ),
+                Color::new(energy_matrix[i][j], 0.0, 0.0, 100.0),
             )
         }
     }
@@ -137,5 +132,37 @@ fn grayscale(image: &RwLock<Image>) -> Vec<Vec<f32>> {
             })
         });
 
+    result
+}
+
+fn gradient_magnitude(grayscale_matrix: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
+    let mut result = vec![vec![0.0; grayscale_matrix[0].len()]; grayscale_matrix.len()];
+    result.par_iter_mut().enumerate().for_each(|(i, vector)| {
+        let width = grayscale_matrix.len();
+        let height = vector.len();
+        for (j, value) in vector.iter_mut().enumerate() {
+            *value = ((if i == 0 {
+                0.0
+            } else {
+                grayscale_matrix[i - 1][j]
+            } - if i == width - 1 {
+                0.0
+            } else {
+                grayscale_matrix[i + 1][j]
+            })
+            .powi(2)
+                + (if j == 0 {
+                    0.0
+                } else {
+                    grayscale_matrix[i][j - 1]
+                } - if j == height - 1 {
+                    0.0
+                } else {
+                    grayscale_matrix[i][j + 1]
+                })
+                .powi(2))
+            .sqrt();
+        }
+    });
     result
 }
