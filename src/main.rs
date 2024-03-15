@@ -4,7 +4,6 @@ use std::{
     f32::INFINITY,
     sync::{mpsc, Arc, RwLock},
     thread,
-    time::Instant,
 };
 
 use macroquad::prelude::*;
@@ -39,8 +38,18 @@ async fn main() {
 
         for _ in 0..energy_matrix.vector.len() / energy_matrix.width {
             let seam = vertical_seam(&energy_matrix);
-            seam.iter()
-                .for_each(|index| energy_matrix.vector[*index] = INFINITY);
+            let chunks: Vec<Vec<f32>> = energy_matrix
+                .vector
+                .par_chunks(energy_matrix.width)
+                .zip(seam)
+                .map(|(chunk, index_to_remove)| {
+                    let mut chunk = chunk.to_vec();
+                    chunk.remove(index_to_remove);
+                    chunk
+                })
+                .collect();
+            energy_matrix.vector = chunks.concat();
+            energy_matrix.width = energy_matrix.width - 1;
         }
     });
 
@@ -213,31 +222,17 @@ fn vertical_seam(energy_matrix: &Matrix<f32>) -> Vec<usize> {
 
         dp_result[i * width + j] = dp_result[(i - 1) * width + j]
             .min({
-                let mut local_iterator = 1;
-                loop {
-                    if j < local_iterator {
-                        break INFINITY;
-                    }
-
-                    let val = dp_result[(i - 1) * width + j - local_iterator];
-                    if val != INFINITY {
-                        break val;
-                    }
-                    local_iterator = local_iterator + 1;
+                if j == 0 {
+                    INFINITY
+                } else {
+                    dp_result[(i - 1) * width + j - 1]
                 }
             })
             .min({
-                let mut local_iterator = 1;
-                loop {
-                    if j + local_iterator >= width {
-                        break INFINITY;
-                    }
-
-                    let val = dp_result[(i - 1) * width + j + local_iterator];
-                    if val != INFINITY {
-                        break val;
-                    }
-                    local_iterator = local_iterator + 1;
+                if j == width - 1 {
+                    INFINITY
+                } else {
+                    dp_result[(i - 1) * width + j + 1]
                 }
             })
             + dp_result[i * width + j];
@@ -265,40 +260,26 @@ fn vertical_seam(energy_matrix: &Matrix<f32>) -> Vec<usize> {
                 + skip
         } else {
             let prev_index = seam[i + 1] - width;
-
-            let mut local_index = 1;
-            let mut current_index = loop {
-                if prev_index < local_index {
-                    break prev_index;
-                }
-                let next_index = prev_index - local_index;
-                if energy_matrix.vector[next_index] != INFINITY {
-                    break next_index;
-                }
-
-                local_index = local_index + 1;
+            let min = if prev_index % width > 0
+                && energy_matrix.vector[prev_index - 1] < energy_matrix.vector[prev_index]
+            {
+                prev_index - 1
+            } else {
+                prev_index
             };
-
-            let mut non_inf_counter = 0;
-            let mut min_index = prev_index;
-            loop {
-                if non_inf_counter == 3 {
-                    break min_index;
-                }
-                let current_value = energy_matrix.vector[current_index];
-                if current_value != INFINITY {
-                    if current_value < energy_matrix.vector[min_index] {
-                        min_index = current_index;
-                    }
-                    non_inf_counter = non_inf_counter + 1;
-                }
-
-                current_index = current_index + 1;
+            if prev_index % width < width - 1
+                && energy_matrix.vector[min] > energy_matrix.vector[prev_index + 1]
+            {
+                prev_index + 1
+            } else {
+                min
             }
         };
 
         seam[i] = index;
     }
 
-    seam
+    seam.iter()
+        .map(|index| index % energy_matrix.width)
+        .collect()
 }
