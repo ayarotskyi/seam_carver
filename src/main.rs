@@ -3,21 +3,16 @@ use std::{
     env,
     f32::INFINITY,
     sync::{mpsc, Arc, RwLock},
-    thread,
 };
-
+mod structs;
+use structs::*;
+mod seam_carver;
 use macroquad::prelude::*;
-#[derive(Clone)]
-struct WindowSize {
-    height: usize,
-    width: usize,
-}
-
-#[derive(Clone)]
-struct Matrix<T> {
-    width: usize,
-    vector: Vec<T>,
-}
+mod utils;
+use seam_carver::*;
+use utils::*;
+mod seam_extractor;
+use seam_extractor::*;
 
 #[macroquad::main("Texture")]
 async fn main() {
@@ -27,58 +22,20 @@ async fn main() {
         width: screen_width() as usize,
     }));
 
-    let image = Arc::new(RwLock::new(load_image("ferris.png").await.unwrap()));
-    let edited_image = Arc::new(RwLock::new(image.read().unwrap().clone()));
+    let mut image = load_image("ferris.png").await.unwrap();
+    let image_matrix = Box::new(image_to_matrix(&image));
+    let energy_matrix = Box::new(gradient_magnitude(&grayscale(&image_matrix)));
 
-    let energy_matrix = Arc::new(RwLock::new(gradient_magnitude(&grayscale(&image))));
-
-    let energy_matrix_clone = Arc::clone(&energy_matrix);
-    thread::spawn(move || {
-        let mut energy_matrix = energy_matrix_clone.read().unwrap().clone();
-
-        for _ in 0..energy_matrix.vector.len() / energy_matrix.width {
-            let seam = vertical_seam(&energy_matrix);
-            let chunks: Vec<Vec<f32>> = energy_matrix
-                .vector
-                .par_chunks(energy_matrix.width)
-                .zip(seam)
-                .map(|(chunk, index_to_remove)| {
-                    let mut chunk = chunk.to_vec();
-                    chunk.remove(index_to_remove);
-                    chunk
-                })
-                .collect();
-            energy_matrix.vector = chunks.concat();
-            energy_matrix.width = energy_matrix.width - 1;
-        }
-    });
-
+    let (vertical_seam_sender, vertical_seam_receiver) = mpsc::channel::<Box<Vec<usize>>>();
     let (image_sender, image_receiver) = mpsc::channel::<Box<Image>>();
 
-    let image_clone = Arc::clone(&image);
-    let edited_image_clone = Arc::clone(&edited_image);
-    let window_size_clone = Arc::clone(&window_size);
-    thread::spawn(move || loop {
-        let edited_image_read_guard = edited_image_clone.read().unwrap();
-        let window_size_read_guard = window_size_clone.read().unwrap();
-        let window_size_clone = window_size_read_guard.clone();
-        drop(window_size_read_guard);
-        let image = if edited_image_read_guard.height() < window_size_clone.height
-            || edited_image_read_guard.width() < window_size_clone.width
-        {
-            &image_clone
-        } else {
-            &edited_image_clone
-        };
-        drop(edited_image_read_guard);
-
-        let image_read_guard = image.read().unwrap();
-        let mut image_clone = image_read_guard.clone();
-        drop(image_read_guard);
-
-        seam_carving(&mut image_clone, &energy_matrix.read().unwrap());
-        let _ = image_sender.send(Box::new(image_clone));
-    });
+    start_seam_extractor_thread(&energy_matrix, vertical_seam_sender);
+    start_seam_carver_thread(
+        &image_matrix,
+        &window_size,
+        vertical_seam_receiver,
+        image_sender,
+    );
 
     loop {
         match window_size.try_read() {
@@ -102,25 +59,12 @@ async fn main() {
         }
 
         match image_receiver.try_recv() {
-            Ok(image) => {
-                let mut edited_image_write_guard = edited_image.write().unwrap();
-                *edited_image_write_guard = *image;
-                drop(edited_image_write_guard);
+            Ok(received_image) => {
+                image = *received_image;
             }
             Err(_) => {}
         }
-
-        match edited_image.try_read() {
-            Ok(edited_image_read_guard) => {
-                draw_texture(
-                    &Texture2D::from_image(&edited_image_read_guard),
-                    0.,
-                    0.,
-                    WHITE,
-                );
-            }
-            Err(_) => {}
-        }
+        draw_texture(&Texture2D::from_image(&image), 0., 0., WHITE);
 
         draw_text(
             &get_fps().to_string(),
@@ -131,155 +75,4 @@ async fn main() {
         );
         next_frame().await
     }
-}
-
-fn seam_carving(image: &mut Image, energy_matrix: &Matrix<f32>) {
-    energy_matrix
-        .vector
-        .chunks(energy_matrix.width)
-        .enumerate()
-        .for_each(|(j, vector)| {
-            vector.iter().enumerate().for_each(|(i, value)| {
-                image.set_pixel(i as u32, j as u32, Color::new(0.0, *value, 0.0, 100.0));
-            });
-        });
-}
-
-fn grayscale(image: &RwLock<Image>) -> Box<Matrix<f32>> {
-    let image_read_guard = image.read().unwrap();
-
-    let mut result = Box::new(Matrix {
-        vector: vec![0.0; image_read_guard.width() * image_read_guard.height()],
-        width: image_read_guard.width(),
-    });
-
-    result
-        .vector
-        .par_chunks_mut(image_read_guard.width())
-        .enumerate()
-        .for_each(|(row, vector)| {
-            vector.iter_mut().enumerate().for_each(|(column, value)| {
-                let color = image_read_guard.get_pixel(column as u32, row as u32);
-                *value = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
-            })
-        });
-
-    result
-}
-
-fn gradient_magnitude(grayscale_matrix: &Matrix<f32>) -> Matrix<f32> {
-    let mut result = Matrix {
-        vector: vec![0.0; grayscale_matrix.vector.len()],
-        width: grayscale_matrix.width,
-    };
-    let width = grayscale_matrix.width;
-    let height = grayscale_matrix.vector.len() / grayscale_matrix.width;
-    result
-        .vector
-        .par_chunks_exact_mut(width)
-        .enumerate()
-        .for_each(|(i, vector)| {
-            for (j, value) in vector.iter_mut().enumerate() {
-                *value = ((if i == 0 {
-                    0.0
-                } else {
-                    grayscale_matrix.vector[(i - 1) * width + j]
-                } - if i == height - 1 {
-                    0.0
-                } else {
-                    grayscale_matrix.vector[(i + 1) * width + j]
-                })
-                .powi(2)
-                    + (if j == 0 {
-                        0.0
-                    } else {
-                        grayscale_matrix.vector[i * width + j - 1]
-                    } - if j == width - 1 {
-                        0.0
-                    } else {
-                        grayscale_matrix.vector[i * width + j + 1]
-                    })
-                    .powi(2))
-                .sqrt();
-            }
-        });
-
-    result
-}
-
-fn vertical_seam(energy_matrix: &Matrix<f32>) -> Vec<usize> {
-    let mut dp_result = energy_matrix.vector.clone();
-    let mut i = 1;
-    let mut j = 0;
-    let width = energy_matrix.width;
-    let height = energy_matrix.vector.len() / width;
-
-    while i < height - 1 {
-        if j == width {
-            j = 0;
-            i = i + 1;
-        }
-
-        dp_result[i * width + j] = dp_result[(i - 1) * width + j]
-            .min({
-                if j == 0 {
-                    INFINITY
-                } else {
-                    dp_result[(i - 1) * width + j - 1]
-                }
-            })
-            .min({
-                if j == width - 1 {
-                    INFINITY
-                } else {
-                    dp_result[(i - 1) * width + j + 1]
-                }
-            })
-            + dp_result[i * width + j];
-
-        j = j + 1;
-    }
-
-    let mut seam = vec![0; height];
-
-    for i in (0..height).rev() {
-        let index = if i == height - 1 {
-            let skip = (height - 1) * width;
-            dp_result
-                .iter()
-                .skip(skip)
-                .take(width)
-                .enumerate()
-                .fold((0, &INFINITY), |acc, value| {
-                    if *acc.1 > *value.1 {
-                        return value;
-                    }
-                    acc
-                })
-                .0
-                + skip
-        } else {
-            let prev_index = seam[i + 1] - width;
-            let min = if prev_index % width > 0
-                && energy_matrix.vector[prev_index - 1] < energy_matrix.vector[prev_index]
-            {
-                prev_index - 1
-            } else {
-                prev_index
-            };
-            if prev_index % width < width - 1
-                && energy_matrix.vector[min] > energy_matrix.vector[prev_index + 1]
-            {
-                prev_index + 1
-            } else {
-                min
-            }
-        };
-
-        seam[i] = index;
-    }
-
-    seam.iter()
-        .map(|index| index % energy_matrix.width)
-        .collect()
 }
