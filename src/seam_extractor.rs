@@ -5,10 +5,10 @@ use mpsc::Sender;
 use crate::*;
 
 pub fn start_seam_extractor_thread(
-    energy_matrix: &Matrix<f32>,
+    image_matrix: &Matrix<Color>,
     vertical_seam_sender: Sender<Box<Vec<usize>>>,
 ) {
-    let mut energy_matrix = energy_matrix.clone();
+    let mut energy_matrix = gradient_magnitude(&grayscale(&image_matrix));
     thread::Builder::new()
         .name("vertical_seam_extractor".to_string())
         .spawn(move || {
