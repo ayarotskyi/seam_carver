@@ -9,7 +9,7 @@ pub fn start_seam_carver_thread(
     vertical_seam_receiver: Receiver<Box<Vec<usize>>>,
     image_sender: Sender<Box<Image>>,
 ) {
-    let mut image_matrix = image_matrix.clone();
+    let image_matrix = image_matrix.clone();
     let window_size_clone = Arc::clone(&window_size);
     thread::Builder::new()
         .name("seam_carver".to_string())
@@ -22,6 +22,7 @@ pub fn start_seam_carver_thread(
             });
             loop {
                 let window_size_clone = window_size_clone.read().unwrap().clone();
+                let mut image_matrix = image_matrix.clone();
 
                 seam_holder
                     .vertical_seams
@@ -41,18 +42,15 @@ fn seam_carving(
     seam_holder: &SeamHolder,
     window_size: &WindowSize,
 ) {
-    seam_holder.vertical_seams.iter().for_each(|seam| {
-        let chunks: Vec<Vec<Color>> = image_matrix
-            .vector
-            .par_chunks(image_matrix.width)
-            .zip(seam)
-            .map(|(chunk, index_to_remove)| {
-                let mut chunk = chunk.to_vec();
-                chunk.remove(*index_to_remove);
-                chunk
-            })
-            .collect();
-        image_matrix.vector = chunks.concat();
-        image_matrix.width = image_matrix.width - 1;
-    })
+    seam_holder
+        .vertical_seams
+        .iter()
+        .take(if window_size.width > image_matrix.width {
+            0
+        } else {
+            image_matrix.width - window_size.width
+        })
+        .for_each(|seam| {
+            delete_vertical_seam(image_matrix, seam);
+        })
 }

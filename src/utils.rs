@@ -75,3 +75,21 @@ pub fn matrix_to_image(matrix: &Matrix<Color>) -> Image {
     image.update(&matrix.vector);
     image
 }
+
+pub fn delete_vertical_seam<T: Sync + std::marker::Send + Clone>(
+    matrix: &mut Matrix<T>,
+    seam: &Vec<usize>,
+) {
+    let chunks: Vec<Vec<T>> = matrix
+        .vector
+        .par_chunks(matrix.width)
+        .zip(seam)
+        .map(|(chunk, index_to_remove)| {
+            let mut chunk = chunk.to_vec();
+            chunk.remove(*index_to_remove);
+            chunk
+        })
+        .collect();
+    matrix.vector = chunks.concat();
+    matrix.width = matrix.width - 1;
+}
