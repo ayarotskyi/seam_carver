@@ -1,3 +1,3 @@
-1. unbind seam carving from seam receiver
-2. fix asymmetric seam carving
-3. add horizontal seams
+1. fix asymmetric seam carving
+2. add horizontal seams
+3. Add better caching mechanism
