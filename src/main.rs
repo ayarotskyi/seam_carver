@@ -22,7 +22,7 @@ async fn main() {
         width: screen_width() as usize,
     }));
 
-    let mut image = load_image("ferris.png").await.unwrap();
+    let mut image = load_image("image.png").await.unwrap();
     let image_matrix = Box::new(image_to_matrix(&image));
 
     let (vertical_seam_sender, vertical_seam_receiver) = mpsc::channel::<Box<Vec<usize>>>();
