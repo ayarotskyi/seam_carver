@@ -16,7 +16,7 @@ pub fn start_seam_extractor_thread(
             let mut rng = thread_rng();
             for _ in 0..grayscale_matrix.width {
                 let energy_matrix = gradient_magnitude(&grayscale_matrix);
-                let seam = vertical_seam(&energy_matrix, &mut rng);
+                let seam = get_vertical_seam(&energy_matrix, &mut rng);
                 delete_vertical_seam(&mut grayscale_matrix, &seam);
                 vertical_seam_sender.send(Box::new(seam.clone())).unwrap();
             }
@@ -24,10 +24,10 @@ pub fn start_seam_extractor_thread(
         .unwrap();
 }
 
-fn vertical_seam(energy_matrix: &Matrix<f32>, rng: &mut ThreadRng) -> Vec<usize> {
+fn get_vertical_seam(energy_matrix: &Matrix<f32>, rng: &mut ThreadRng) -> Vec<usize> {
     let mut dp_result = energy_matrix.vector.clone();
     let width = energy_matrix.width;
-    let height = energy_matrix.vector.len() / width;
+    let height = energy_matrix.height();
 
     // fill in the vector using dynamic programming
     for i in 1..height {

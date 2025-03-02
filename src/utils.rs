@@ -17,7 +17,7 @@ pub fn gradient_magnitude(grayscale_matrix: &Matrix<f32>) -> Matrix<f32> {
         width: grayscale_matrix.width,
     };
     let width = grayscale_matrix.width;
-    let height = grayscale_matrix.vector.len() / grayscale_matrix.width;
+    let height = grayscale_matrix.height();
     result
         .vector
         .par_chunks_exact_mut(width)
@@ -70,7 +70,7 @@ pub fn matrix_to_image(matrix: &Matrix<Color>) -> Image {
     let mut image = Image {
         bytes: vec![0; matrix.vector.len() * 4],
         width: matrix.width as u16,
-        height: (matrix.vector.len() / matrix.width) as u16,
+        height: matrix.height() as u16,
     };
     image.update(&matrix.vector);
     image

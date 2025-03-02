@@ -23,18 +23,12 @@ async fn main() {
     }));
 
     let mut image = load_image("image.png").await.unwrap();
-    let image_matrix = Box::new(image_to_matrix(&image));
+    let image_matrix = Arc::new(RwLock::new(image_to_matrix(&image)));
 
     let (vertical_seam_sender, vertical_seam_receiver) = mpsc::channel::<Box<Vec<usize>>>();
-    let (image_sender, image_receiver) = mpsc::channel::<Box<Image>>();
 
-    start_seam_extractor_thread(&image_matrix, vertical_seam_sender);
-    start_seam_carver_thread(
-        &image_matrix,
-        &window_size,
-        vertical_seam_receiver,
-        image_sender,
-    );
+    start_seam_extractor_thread(&image_matrix.read().unwrap().clone(), vertical_seam_sender);
+    start_seam_carver_thread(&image_matrix, &window_size, vertical_seam_receiver);
 
     loop {
         match window_size.try_read() {
@@ -56,13 +50,7 @@ async fn main() {
             }
             Err(_) => {}
         }
-
-        match image_receiver.try_recv() {
-            Ok(received_image) => {
-                image = *received_image;
-            }
-            Err(_) => {}
-        }
+        image = matrix_to_image(&image_matrix.read().unwrap().clone());
         draw_texture(&Texture2D::from_image(&image), 0., 0., WHITE);
 
         draw_text(
