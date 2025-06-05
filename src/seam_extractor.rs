@@ -200,23 +200,6 @@ fn extract_horizontal_seam(energy_matrix: &Matrix<f32>, rng: &mut ThreadRng) -> 
     for i in (0..width - 1).rev() {
         let index = {
             let mid_index = indices[i + 1] - 1;
-            let min_index =
-                if mid_index > width && dp_result[mid_index - width] < dp_result[mid_index] {
-                    mid_index - width
-                } else {
-                    mid_index
-                };
-            if mid_index / width < height && dp_result[mid_index + width] < dp_result[min_index] {
-                mid_index + width
-            } else {
-                min_index
-            }
-        };
-        indices[i] = index;
-    }
-    for i in (0..width - 1).rev() {
-        let index = {
-            let mid_index = indices[i + 1] - 1;
             let top_index = match ((mid_index % width)..mid_index)
                 .step_by(width)
                 .rev()
@@ -250,6 +233,7 @@ fn extract_horizontal_seam(energy_matrix: &Matrix<f32>, rng: &mut ThreadRng) -> 
         };
         indices[i] = index;
     }
+    indices.sort();
 
     Seam {
         total_energy: indices
