@@ -9,6 +9,11 @@ pub struct Matrix<T> {
     pub width: usize,
     pub vector: Vec<T>,
 }
+impl<T> Matrix<T> {
+    pub fn height(&self) -> usize {
+        self.vector.len() / self.width
+    }
+}
 
 pub struct Seam {
     pub indices: Vec<usize>,

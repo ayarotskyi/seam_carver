@@ -51,7 +51,7 @@ pub fn spawn_seam_extractors(
 fn extract_vertical_seam(energy_matrix: &Matrix<f32>, rng: &mut ThreadRng) -> Seam {
     let mut dp_result = energy_matrix.vector.clone();
     let width = energy_matrix.width;
-    let height = energy_matrix.vector.len() / width;
+    let height = energy_matrix.height();
 
     // fill in the vector using dynamic programming
     for i in 1..height {

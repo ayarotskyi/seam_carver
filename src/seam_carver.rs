@@ -19,9 +19,7 @@ pub fn spawn_seam_carver(
         .name("seam_carver".to_string())
         .spawn(move || {
             let mut seam_holder = Box::new(SeamHolder {
-                horizontal_seams: Vec::with_capacity(
-                    image_matrix.vector.len() / image_matrix.width,
-                ),
+                horizontal_seams: Vec::with_capacity(image_matrix.height()),
                 vertical_seams: Vec::with_capacity(image_matrix.width),
             });
 
