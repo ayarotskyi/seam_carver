@@ -27,18 +27,32 @@ where
             vector: vector,
         }
     }
-    pub fn carve_horizontal_seam(&mut self, seam: &Seam)
-    where
-        T: Clone + std::marker::Send + Sync + Copy,
-    {
+    pub fn carve_horizontal_seams(&mut self, seams: Vec<Seam>) {
+        let height = self.height();
+        let resulting_height = height - seams.len();
+
         let column_vectors: Vec<(Vec<T>, Vec<usize>)> = (0..self.width)
             .into_par_iter()
             .map(|column| {
-                let mut vector_result = Vec::with_capacity(self.height() - 1);
-                let mut original_indices_result = Vec::with_capacity(self.height() - 1);
-                for row in 0..self.height() {
+                let mut sorted_indices_to_remove = seams
+                    .iter()
+                    .map(|seam| seam.indices[column])
+                    .collect::<Vec<usize>>();
+                sorted_indices_to_remove.sort();
+
+                let mut current_remove_index = 0;
+
+                let mut vector_result = Vec::with_capacity(resulting_height);
+                let mut original_indices_result = Vec::with_capacity(resulting_height);
+                let mut count = 0;
+                for row in 0..height {
                     let index = self.original_indices[row * self.width + column];
-                    if seam.indices[column] != index {
+                    if current_remove_index < sorted_indices_to_remove.len()
+                        && sorted_indices_to_remove[current_remove_index] == index
+                    {
+                        current_remove_index = current_remove_index + 1;
+                        count = count + 1;
+                    } else {
                         vector_result.push(self.vector[row * self.width + column]);
                         original_indices_result.push(index);
                     }
@@ -48,7 +62,7 @@ where
             })
             .collect::<Vec<(Vec<T>, Vec<usize>)>>();
 
-        let result = (0..(self.height() - 1))
+        let result = (0..resulting_height)
             .into_par_iter()
             .map(|row| {
                 column_vectors
