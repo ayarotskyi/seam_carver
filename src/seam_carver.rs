@@ -1,5 +1,4 @@
 use mpsc::Sender;
-use sorted_vec::SortedSet;
 
 use crate::*;
 use std::thread;
@@ -33,7 +32,7 @@ pub fn spawn_seam_carver(
                     .extend(horizontal_seam_receiver.try_iter().map(|seam| *seam));
 
                 image_sender
-                    .send(Box::new(matrix_to_image(&carve_seams(
+                    .send(Box::new(matrix_to_image(&adjust_image_to_window_size(
                         &image_matrix,
                         &seam_holder,
                         &window_size,
@@ -44,14 +43,13 @@ pub fn spawn_seam_carver(
         .unwrap();
 }
 
-fn carve_seams(
+fn adjust_image_to_window_size(
     image_matrix: &Matrix<Color>,
     seam_holder: &SeamHolder,
     window_size: &WindowSize,
 ) -> Matrix<Color> {
     let image_matrix = image_matrix.clone();
     let image_height = image_matrix.vector.len() / image_matrix.width;
-    let mut indices_to_remove = SortedSet::with_capacity(image_matrix.vector.len());
 
     let horizontal_seams_amount = if window_size.height < image_height {
         image_height - window_size.height
@@ -66,26 +64,15 @@ fn carve_seams(
     }
     .min(seam_holder.vertical_seams.len());
 
-    seam_holder
+    let mut resulting_matrix = image_matrix.clone();
+
+    for seam in seam_holder
         .horizontal_seams
         .iter()
         .take(horizontal_seams_amount)
-        .for_each(|seam| {
-            indices_to_remove.extend(seam.indices.iter().map(|index: &usize| *index));
-        });
-
-    seam_holder
-        .vertical_seams
-        .iter()
-        .take(vertical_seams_amount)
-        .for_each(|seam| {
-            indices_to_remove.extend(seam.indices.iter().map(|index: &usize| *index));
-        });
-
-    let vector = remove_sorted_indices(&image_matrix.vector, &indices_to_remove.to_vec());
-
-    Matrix {
-        width: image_matrix.width - vertical_seams_amount,
-        vector: vector,
+    {
+        resulting_matrix = carve_horizontal_seam(&resulting_matrix, seam);
     }
+
+    resulting_matrix
 }

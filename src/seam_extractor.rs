@@ -12,20 +12,20 @@ pub fn spawn_seam_extractors(
 ) {
     let mut vertical_grayscale_matrix = grayscale(&image_matrix);
     let mut horizontal_grayscale_matrix = vertical_grayscale_matrix.clone();
-    thread::Builder::new()
-        .name("vertical_seam_extractor".to_string())
-        .spawn(move || {
-            let mut rng = thread_rng();
-            for _ in 0..vertical_grayscale_matrix.width {
-                let energy_matrix = gradient_magnitude(&vertical_grayscale_matrix);
-                let vertical_seam = extract_vertical_seam(&energy_matrix, &mut rng);
+    // thread::Builder::new()
+    //     .name("vertical_seam_extractor".to_string())
+    //     .spawn(move || {
+    //         let mut rng = thread_rng();
+    //         for _ in 0..vertical_grayscale_matrix.width {
+    //             let energy_matrix = gradient_magnitude(&vertical_grayscale_matrix);
+    //             let vertical_seam = extract_vertical_seam(&energy_matrix, &mut rng);
 
-                vertical_grayscale_matrix.vector =
-                    mask_sorted_indices(vertical_grayscale_matrix.vector, &vertical_seam.indices);
-                vertical_seam_sender.send(Box::new(vertical_seam)).unwrap();
-            }
-        })
-        .unwrap();
+    //             vertical_grayscale_matrix.vector =
+    //                 mask_sorted_indices(vertical_grayscale_matrix.vector, &vertical_seam.indices);
+    //             vertical_seam_sender.send(Box::new(vertical_seam)).unwrap();
+    //         }
+    //     })
+    //     .unwrap();
 
     thread::Builder::new()
         .name("horizontal_seam_extractor".to_string())
@@ -35,10 +35,10 @@ pub fn spawn_seam_extractors(
                 let energy_matrix = gradient_magnitude(&horizontal_grayscale_matrix);
                 let horizontal_seam = extract_horizontal_seam(&energy_matrix, &mut rng);
 
-                horizontal_grayscale_matrix.vector = mask_sorted_indices(
-                    horizontal_grayscale_matrix.vector,
-                    &horizontal_seam.indices,
-                );
+                horizontal_grayscale_matrix = Box::new(carve_horizontal_seam(
+                    &horizontal_grayscale_matrix,
+                    &horizontal_seam,
+                ));
 
                 horizontal_seam_sender
                     .send(Box::new(horizontal_seam))
@@ -136,10 +136,10 @@ fn extract_vertical_seam(energy_matrix: &Matrix<f32>, rng: &mut ThreadRng) -> Se
     }
 
     Seam {
-        total_energy: indices
+        indices: indices
             .iter()
-            .fold(0.0, |acc, index| acc + energy_matrix.vector[*index]),
-        indices: indices,
+            .map(|index| energy_matrix.original_indices[*index])
+            .collect(),
     }
 }
 
@@ -181,8 +181,8 @@ fn extract_horizontal_seam(energy_matrix: &Matrix<f32>, rng: &mut ThreadRng) -> 
     let mut current_min = dp_result[width - 1];
     dp_result
         .iter()
-        .skip(width - 1)
         .enumerate()
+        .skip(width - 1)
         .step_by(width)
         .for_each(|(index, value)| {
             if *value < current_min {
@@ -233,36 +233,11 @@ fn extract_horizontal_seam(energy_matrix: &Matrix<f32>, rng: &mut ThreadRng) -> 
         };
         indices[i] = index;
     }
-    indices.sort();
 
     Seam {
-        total_energy: indices
+        indices: indices
             .iter()
-            .fold(0.0, |acc, index| acc + energy_matrix.vector[*index]),
-        indices: indices,
+            .map(|index| energy_matrix.original_indices[*index])
+            .collect(),
     }
-}
-
-fn mask_sorted_indices(mut vector: Vec<f32>, indices: &Vec<usize>) -> Vec<f32> {
-    let mut indices = indices.into_iter();
-
-    let mut index_to_remove = match indices.next() {
-        Some(index) => index,
-        None => return vector.clone(),
-    };
-
-    let mut count = 0;
-
-    for index in 0..vector.len() {
-        if index == *index_to_remove {
-            count = count + 1;
-            vector[index] = INFINITY;
-            index_to_remove = match indices.next() {
-                Some(index) => index,
-                None => break,
-            }
-        }
-    }
-
-    vector
 }

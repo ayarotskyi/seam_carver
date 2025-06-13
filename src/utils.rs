@@ -8,6 +8,7 @@ pub fn grayscale(image_matrix: &Matrix<Color>) -> Box<Matrix<f32>> {
             .map(|color| 0.299 * color.r + 0.587 * color.g + 0.114 * color.b)
             .collect(),
         width: image_matrix.width,
+        original_indices: image_matrix.original_indices.clone(),
     })
 }
 
@@ -15,6 +16,7 @@ pub fn gradient_magnitude(grayscale_matrix: &Matrix<f32>) -> Matrix<f32> {
     let mut result = Matrix {
         vector: vec![INFINITY; grayscale_matrix.vector.len()],
         width: grayscale_matrix.width,
+        original_indices: grayscale_matrix.original_indices.clone(),
     };
     let width = grayscale_matrix.width;
     let height = grayscale_matrix.height();
@@ -72,6 +74,7 @@ pub fn image_to_matrix(image: &Image) -> Matrix<Color> {
             }
             vector
         },
+        original_indices: (0..(image.width() * image.height())).collect(),
     }
 }
 
@@ -85,25 +88,41 @@ pub fn matrix_to_image(matrix: &Matrix<Color>) -> Image {
     image
 }
 
-pub fn remove_sorted_indices<T: Copy>(vector: &Vec<T>, indices: &Vec<usize>) -> Vec<T> {
-    let mut indices = indices.into_iter();
-    let mut result = Vec::with_capacity(vector.len() - indices.len());
-
-    let mut index_to_remove = match indices.next() {
-        Some(index) => index,
-        None => return vector.clone(),
-    };
-
-    vector.into_iter().enumerate().for_each(|(index, value)| {
-        if index != *index_to_remove {
-            result.push(*value);
-        } else {
-            index_to_remove = match indices.next() {
-                Some(index) => index,
-                None => return,
+pub fn carve_horizontal_seam<T>(matrix: &Matrix<T>, seam: &Seam) -> Matrix<T>
+where
+    T: Clone + std::marker::Send + Sync + Copy,
+{
+    let column_vectors: Vec<(Vec<T>, Vec<usize>)> = (0..matrix.width)
+        .into_par_iter()
+        .map(|column| {
+            let mut vector_result = Vec::with_capacity(matrix.height() - 1);
+            let mut original_indices_result = Vec::with_capacity(matrix.height() - 1);
+            for row in 0..matrix.height() {
+                let index = matrix.original_indices[row * matrix.width + column];
+                if seam.indices[column] != index {
+                    vector_result.push(matrix.vector[row * matrix.width + column]);
+                    original_indices_result.push(index);
+                }
             }
-        }
-    });
 
-    result
+            return (vector_result, original_indices_result);
+        })
+        .collect::<Vec<(Vec<T>, Vec<usize>)>>();
+
+    let result = (0..(matrix.height() - 1))
+        .into_par_iter()
+        .map(|row| {
+            column_vectors
+                .iter()
+                .map(|column_vector| (column_vector.0[row], column_vector.1[row]))
+                .collect::<Vec<(T, usize)>>()
+        })
+        .collect::<Vec<Vec<(T, usize)>>>()
+        .concat();
+
+    Matrix {
+        width: matrix.width,
+        vector: result.iter().map(|item| item.0).collect(),
+        original_indices: result.iter().map(|item| item.1).collect(),
+    }
 }

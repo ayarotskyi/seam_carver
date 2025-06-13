@@ -14,7 +14,16 @@ use utils::*;
 mod seam_extractor;
 use seam_extractor::*;
 
-#[macroquad::main("Texture")]
+fn window_conf() -> Conf {
+    Conf {
+        window_title: "Seam Carving".to_owned(),
+        window_width: 500,
+        window_height: 500,
+        ..Default::default()
+    }
+}
+
+#[macroquad::main(window_conf)]
 async fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     let window_size = Arc::new(RwLock::new(WindowSize {
