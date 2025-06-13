@@ -63,9 +63,8 @@ pub fn gradient_magnitude(grayscale_matrix: &Matrix<f32>) -> Matrix<f32> {
 }
 
 pub fn image_to_matrix(image: &Image) -> Matrix<Color> {
-    Matrix {
-        width: image.width(),
-        vector: {
+    Matrix::new(
+        {
             let mut vector = Vec::with_capacity(image.width() * image.height());
             for y in 0..image.height() {
                 for x in 0..image.width() {
@@ -74,8 +73,8 @@ pub fn image_to_matrix(image: &Image) -> Matrix<Color> {
             }
             vector
         },
-        original_indices: (0..(image.width() * image.height())).collect(),
-    }
+        image.width(),
+    )
 }
 
 pub fn matrix_to_image(matrix: &Matrix<Color>) -> Image {
@@ -86,43 +85,4 @@ pub fn matrix_to_image(matrix: &Matrix<Color>) -> Image {
     };
     image.update(&matrix.vector);
     image
-}
-
-pub fn carve_horizontal_seam<T>(matrix: &Matrix<T>, seam: &Seam) -> Matrix<T>
-where
-    T: Clone + std::marker::Send + Sync + Copy,
-{
-    let column_vectors: Vec<(Vec<T>, Vec<usize>)> = (0..matrix.width)
-        .into_par_iter()
-        .map(|column| {
-            let mut vector_result = Vec::with_capacity(matrix.height() - 1);
-            let mut original_indices_result = Vec::with_capacity(matrix.height() - 1);
-            for row in 0..matrix.height() {
-                let index = matrix.original_indices[row * matrix.width + column];
-                if seam.indices[column] != index {
-                    vector_result.push(matrix.vector[row * matrix.width + column]);
-                    original_indices_result.push(index);
-                }
-            }
-
-            return (vector_result, original_indices_result);
-        })
-        .collect::<Vec<(Vec<T>, Vec<usize>)>>();
-
-    let result = (0..(matrix.height() - 1))
-        .into_par_iter()
-        .map(|row| {
-            column_vectors
-                .iter()
-                .map(|column_vector| (column_vector.0[row], column_vector.1[row]))
-                .collect::<Vec<(T, usize)>>()
-        })
-        .collect::<Vec<Vec<(T, usize)>>>()
-        .concat();
-
-    Matrix {
-        width: matrix.width,
-        vector: result.iter().map(|item| item.0).collect(),
-        original_indices: result.iter().map(|item| item.1).collect(),
-    }
 }

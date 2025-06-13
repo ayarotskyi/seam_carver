@@ -34,11 +34,7 @@ pub fn spawn_seam_extractors(
             for _ in 0..horizontal_grayscale_matrix.width {
                 let energy_matrix = gradient_magnitude(&horizontal_grayscale_matrix);
                 let horizontal_seam = extract_horizontal_seam(&energy_matrix, &mut rng);
-
-                horizontal_grayscale_matrix = Box::new(carve_horizontal_seam(
-                    &horizontal_grayscale_matrix,
-                    &horizontal_seam,
-                ));
+                horizontal_grayscale_matrix.carve_horizontal_seam(&horizontal_seam);
 
                 horizontal_seam_sender
                     .send(Box::new(horizontal_seam))

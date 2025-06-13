@@ -71,7 +71,7 @@ fn adjust_image_to_window_size(
         .iter()
         .take(horizontal_seams_amount)
     {
-        resulting_matrix = carve_horizontal_seam(&resulting_matrix, seam);
+        resulting_matrix.carve_horizontal_seam(seam);
     }
 
     resulting_matrix
