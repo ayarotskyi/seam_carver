@@ -7,25 +7,24 @@ use ::rand::{rngs::ThreadRng, thread_rng, Rng};
 
 pub fn spawn_seam_extractors(
     image_matrix: &Matrix<Color>,
-    vertical_seam_sender: Sender<Box<Seam>>,
-    horizontal_seam_sender: Sender<Box<Seam>>,
+    vertical_seam_sender: Sender<Seam>,
+    horizontal_seam_sender: Sender<Seam>,
 ) {
     let mut vertical_grayscale_matrix = grayscale(&image_matrix);
     let mut horizontal_grayscale_matrix = vertical_grayscale_matrix.clone();
-    // thread::Builder::new()
-    //     .name("vertical_seam_extractor".to_string())
-    //     .spawn(move || {
-    //         let mut rng = thread_rng();
-    //         for _ in 0..vertical_grayscale_matrix.width {
-    //             let energy_matrix = gradient_magnitude(&vertical_grayscale_matrix);
-    //             let vertical_seam = extract_vertical_seam(&energy_matrix, &mut rng);
+    thread::Builder::new()
+        .name("vertical_seam_extractor".to_string())
+        .spawn(move || {
+            let mut rng = thread_rng();
+            for _ in 0..vertical_grayscale_matrix.width {
+                let energy_matrix = gradient_magnitude(&vertical_grayscale_matrix);
+                let vertical_seam = extract_vertical_seam(&energy_matrix, &mut rng);
+                vertical_grayscale_matrix.carve_vertical_seams(vec![vertical_seam.clone()]);
 
-    //             vertical_grayscale_matrix.vector =
-    //                 mask_sorted_indices(vertical_grayscale_matrix.vector, &vertical_seam.indices);
-    //             vertical_seam_sender.send(Box::new(vertical_seam)).unwrap();
-    //         }
-    //     })
-    //     .unwrap();
+                vertical_seam_sender.send(vertical_seam).unwrap();
+            }
+        })
+        .unwrap();
 
     thread::Builder::new()
         .name("horizontal_seam_extractor".to_string())
@@ -36,9 +35,7 @@ pub fn spawn_seam_extractors(
                 let horizontal_seam = extract_horizontal_seam(&energy_matrix, &mut rng);
                 horizontal_grayscale_matrix.carve_horizontal_seams(vec![horizontal_seam.clone()]);
 
-                horizontal_seam_sender
-                    .send(Box::new(horizontal_seam))
-                    .unwrap();
+                horizontal_seam_sender.send(horizontal_seam).unwrap();
             }
         })
         .unwrap();

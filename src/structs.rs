@@ -44,14 +44,12 @@ where
 
                 let mut vector_result = Vec::with_capacity(resulting_height);
                 let mut original_indices_result = Vec::with_capacity(resulting_height);
-                let mut count = 0;
                 for row in 0..height {
                     let index = self.original_indices[row * self.width + column];
                     if current_remove_index < sorted_indices_to_remove.len()
                         && sorted_indices_to_remove[current_remove_index] == index
                     {
                         current_remove_index = current_remove_index + 1;
-                        count = count + 1;
                     } else {
                         vector_result.push(self.vector[row * self.width + column]);
                         original_indices_result.push(index);
@@ -77,6 +75,49 @@ where
             width: self.width,
             vector: result.iter().map(|item| item.0).collect(),
             original_indices: result.iter().map(|item| item.1).collect(),
+        };
+    }
+    pub fn carve_vertical_seams(&mut self, seams: Vec<Seam>) {
+        let mut sorted_indices_to_remove = seams
+            .iter()
+            .cloned()
+            .map(|seam| seam.indices)
+            .collect::<Vec<Vec<usize>>>()
+            .concat();
+        sorted_indices_to_remove.sort();
+        let mut sorted_indices_to_remove_iter = sorted_indices_to_remove.iter();
+
+        let mut resulting_vector: Vec<T> =
+            Vec::with_capacity(self.vector.len() - seams.len() * self.height());
+        let mut resulting_original_indices: Vec<usize> =
+            Vec::with_capacity(self.vector.len() - seams.len() * self.height());
+
+        let mut index_to_remove = match sorted_indices_to_remove_iter.next() {
+            None => {
+                return;
+            }
+            Some(index_to_remove) => *index_to_remove,
+        };
+
+        for (index, value) in self.vector.iter().enumerate() {
+            let original_index = self.original_indices[index];
+            if index_to_remove == original_index {
+                index_to_remove = match sorted_indices_to_remove_iter.next() {
+                    None => {
+                        continue;
+                    }
+                    Some(index_to_remove) => *index_to_remove,
+                };
+                continue;
+            }
+            resulting_vector.push(*value);
+            resulting_original_indices.push(original_index);
+        }
+
+        *self = Matrix {
+            width: self.width - seams.len(),
+            vector: resulting_vector,
+            original_indices: resulting_original_indices,
         };
     }
 }

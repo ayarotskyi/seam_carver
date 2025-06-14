@@ -8,8 +8,8 @@ pub fn spawn_seam_carver(
     window_size: &Arc<RwLock<WindowSize>>,
     image_sender: Sender<Box<Image>>,
 ) {
-    let (vertical_seam_sender, vertical_seam_receiver) = mpsc::channel::<Box<Seam>>();
-    let (horizontal_seam_sender, horizontal_seam_receiver) = mpsc::channel::<Box<Seam>>();
+    let (vertical_seam_sender, vertical_seam_receiver) = mpsc::channel::<Seam>();
+    let (horizontal_seam_sender, horizontal_seam_receiver) = mpsc::channel::<Seam>();
     spawn_seam_extractors(&image_matrix, vertical_seam_sender, horizontal_seam_sender);
 
     let image_matrix = Box::new(image_matrix.clone());
@@ -26,10 +26,10 @@ pub fn spawn_seam_carver(
                 let window_size = window_size_clone.read().unwrap().clone();
                 seam_holder
                     .vertical_seams
-                    .extend(vertical_seam_receiver.try_iter().map(|seam| *seam));
+                    .extend(vertical_seam_receiver.try_iter());
                 seam_holder
                     .horizontal_seams
-                    .extend(horizontal_seam_receiver.try_iter().map(|seam| *seam));
+                    .extend(horizontal_seam_receiver.try_iter());
 
                 image_sender
                     .send(Box::new(matrix_to_image(&adjust_image_to_window_size(
@@ -71,6 +71,15 @@ fn adjust_image_to_window_size(
             .iter()
             .cloned()
             .take(horizontal_seams_amount)
+            .collect(),
+    );
+
+    resulting_matrix.carve_vertical_seams(
+        seam_holder
+            .vertical_seams
+            .iter()
+            .cloned()
+            .take(vertical_seams_amount)
             .collect(),
     );
 
