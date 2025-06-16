@@ -4,8 +4,8 @@ use std::{
     f32::INFINITY,
     sync::{mpsc, Arc, RwLock},
 };
-mod structs;
-use structs::*;
+mod matrix;
+use matrix::*;
 mod seam_carver;
 use macroquad::prelude::*;
 mod utils;
@@ -21,6 +21,12 @@ fn window_conf() -> Conf {
         window_height: 500,
         ..Default::default()
     }
+}
+
+#[derive(Clone)]
+pub struct WindowSize {
+    pub height: usize,
+    pub width: usize,
 }
 
 #[macroquad::main(window_conf)]
