@@ -19,7 +19,7 @@ pub fn spawn_seam_extractors(
             for _ in 0..vertical_grayscale_matrix.width {
                 let energy_matrix = gradient_magnitude(&vertical_grayscale_matrix);
                 let vertical_seam = extract_vertical_seam(&energy_matrix, &mut rng);
-                vertical_grayscale_matrix.carve_vertical_seams(vec![vertical_seam.clone()]);
+                vertical_grayscale_matrix.carve_vertical_seam(vertical_seam.clone());
 
                 vertical_seam_sender.send(vertical_seam).unwrap();
             }
@@ -33,7 +33,7 @@ pub fn spawn_seam_extractors(
             for _ in 0..horizontal_grayscale_matrix.width {
                 let energy_matrix = gradient_magnitude(&horizontal_grayscale_matrix);
                 let horizontal_seam = extract_horizontal_seam(&energy_matrix, &mut rng);
-                horizontal_grayscale_matrix.carve_horizontal_seams(vec![horizontal_seam.clone()]);
+                horizontal_grayscale_matrix.carve_horizontal_seam(horizontal_seam.clone());
 
                 horizontal_seam_sender.send(horizontal_seam).unwrap();
             }

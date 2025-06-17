@@ -65,23 +65,6 @@ fn adjust_image_to_window_size(
     .min(seam_holder.vertical_seams.len());
 
     let mut resulting_matrix = image_matrix.clone();
-    resulting_matrix.carve_horizontal_seams(
-        seam_holder
-            .horizontal_seams
-            .iter()
-            .cloned()
-            .take(horizontal_seams_amount)
-            .collect(),
-    );
-
-    resulting_matrix.carve_vertical_seams(
-        seam_holder
-            .vertical_seams
-            .iter()
-            .cloned()
-            .take(vertical_seams_amount)
-            .collect(),
-    );
 
     resulting_matrix
 }
