@@ -2,7 +2,7 @@ use rayon::prelude::*;
 use std::{
     env,
     f32::INFINITY,
-    sync::{mpsc, Arc, RwLock},
+    sync::{Arc, RwLock},
 };
 mod matrix;
 use matrix::*;
@@ -11,8 +11,6 @@ use macroquad::prelude::*;
 mod utils;
 use seam_carver::*;
 use utils::*;
-mod seam_extractor;
-use seam_extractor::*;
 
 fn window_conf() -> Conf {
     Conf {
@@ -23,7 +21,7 @@ fn window_conf() -> Conf {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct WindowSize {
     pub height: usize,
     pub width: usize,
@@ -37,12 +35,11 @@ async fn main() {
         width: screen_width() as usize,
     }));
 
-    let mut image = load_image("image.png").await.unwrap();
-    let image_matrix = Box::new(image_to_matrix(&image));
-    let (image_sender, image_receiver) = mpsc::channel::<Box<Image>>();
+    let displayed_image = Arc::new(RwLock::new(load_image("image.png").await.unwrap()));
 
-    spawn_seam_carver(&image_matrix, &window_size, image_sender);
+    spawn_seam_carver(&displayed_image, &window_size);
 
+    let mut displayed_image_clone = displayed_image.read().unwrap().clone();
     loop {
         match window_size.try_read() {
             Ok(window_size_read_guard) => {
@@ -64,13 +61,19 @@ async fn main() {
             Err(_) => {}
         }
 
-        match image_receiver.try_recv() {
-            Ok(received_image) => {
-                image = *received_image;
+        match displayed_image.try_read() {
+            Ok(displayed_image_read_lock) => {
+                displayed_image_clone = displayed_image_read_lock.clone();
             }
             Err(_) => {}
         }
-        draw_texture(&Texture2D::from_image(&image), 0., 0., WHITE);
+
+        draw_texture(
+            &Texture2D::from_image(&displayed_image_clone),
+            0.,
+            0.,
+            WHITE,
+        );
 
         draw_text(
             &get_fps().to_string(),

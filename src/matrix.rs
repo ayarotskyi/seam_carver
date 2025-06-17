@@ -3,11 +3,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct Seam {
     pub indices: Vec<usize>,
-}
-
-pub struct SeamHolder {
-    pub vertical_seams: Vec<Seam>,
-    pub horizontal_seams: Vec<Seam>,
+    pub is_vertical: bool,
 }
 
 #[derive(Clone)]
@@ -31,7 +27,7 @@ where
             vector: vector,
         }
     }
-    pub fn carve_horizontal_seam(&mut self, seam: Seam) {
+    fn carve_horizontal_seam(&mut self, seam: &Seam) {
         let height = self.height();
 
         let column_vectors: Vec<(Vec<T>, Vec<usize>)> = (0..self.width)
@@ -68,16 +64,14 @@ where
             original_indices: result.iter().map(|item| item.1).collect(),
         };
     }
-    pub fn carve_vertical_seam(&mut self, seam: Seam) {
-        let mut sorted_indices_to_remove = seam.indices;
-        sorted_indices_to_remove.sort();
-        let mut sorted_indices_to_remove_iter = sorted_indices_to_remove.iter();
+    fn carve_vertical_seam(&mut self, seam: &Seam) {
+        let mut indices_to_remove = seam.indices.iter();
 
         let mut resulting_vector: Vec<T> = Vec::with_capacity(self.vector.len() - self.height());
         let mut resulting_original_indices: Vec<usize> =
             Vec::with_capacity(self.vector.len() - self.height());
 
-        let mut index_to_remove = match sorted_indices_to_remove_iter.next() {
+        let mut index_to_remove = match indices_to_remove.next() {
             None => {
                 return;
             }
@@ -87,7 +81,7 @@ where
         for (index, value) in self.vector.iter().enumerate() {
             let original_index = self.original_indices[index];
             if index_to_remove == original_index {
-                index_to_remove = match sorted_indices_to_remove_iter.next() {
+                index_to_remove = match indices_to_remove.next() {
                     None => {
                         continue;
                     }
@@ -105,28 +99,12 @@ where
             original_indices: resulting_original_indices,
         };
     }
-    pub fn carve_seams(&mut self, seam_holder: SeamHolder) {
-        #[derive(Clone, Copy)]
-        enum SeamPoint {
-            Horizontal,
-            Vertical,
-            None,
+    pub fn carve_seam(&mut self, seam: &Seam) {
+        if seam.is_vertical {
+            self.carve_vertical_seam(seam);
+        } else {
+            self.carve_horizontal_seam(seam);
         }
-
-        let mut seam_matrix: Matrix<SeamPoint> =
-            Matrix::new(vec![SeamPoint::None; self.vector.len()], self.width);
-
-        seam_holder.horizontal_seams.iter().for_each(|seam| {
-            seam.indices.iter().for_each(|index| {
-                seam_matrix.vector[*index] = SeamPoint::Horizontal;
-            })
-        });
-
-        seam_holder.vertical_seams.iter().for_each(|seam| {
-            seam.indices.iter().for_each(|index| {
-                seam_matrix.vector[*index] = SeamPoint::Vertical;
-            })
-        });
     }
 }
 
@@ -233,8 +211,9 @@ mod tests {
             4,
         );
         let mut output = matrix.clone();
-        output.carve_horizontal_seam(Seam {
+        output.carve_seam(&Seam {
             indices: vec![0, 5, 6, 11],
+            is_vertical: false,
         });
         assert_matrices_equal(
             matrix,
@@ -283,8 +262,63 @@ mod tests {
             4,
         );
         let mut output = matrix.clone();
-        output.carve_vertical_seam(Seam {
+        output.carve_seam(&Seam {
             indices: vec![0, 5, 10, 15],
+            is_vertical: true,
+        });
+        assert_matrices_equal(
+            matrix,
+            output,
+            Matrix::new(
+                Vec::from([
+                    BgColor::Red,
+                    BgColor::Green,
+                    BgColor::Yellow,
+                    BgColor::Blue,
+                    BgColor::Red,
+                    BgColor::White,
+                    BgColor::Cyan,
+                    BgColor::Black,
+                    BgColor::Yellow,
+                    BgColor::Cyan,
+                    BgColor::Red,
+                    BgColor::Green,
+                ]),
+                3,
+            ),
+        );
+    }
+
+    // after horizontal carving not all original indices are ordered,
+    // which caused bugs in previous versions of the vertical carver
+    #[test]
+    fn test_vertical_incorrect_original_index_order() {
+        let matrix = Matrix {
+            vector: Vec::from([
+                BgColor::Black,
+                BgColor::Red,
+                BgColor::Green,
+                BgColor::Yellow,
+                BgColor::Blue,
+                BgColor::Magenta,
+                BgColor::Red,
+                BgColor::White,
+                BgColor::Cyan,
+                BgColor::Black,
+                BgColor::Blue,
+                BgColor::Yellow,
+                BgColor::Cyan,
+                BgColor::Red,
+                BgColor::Green,
+                BgColor::White,
+            ]),
+            width: 4,
+            original_indices: Vec::from([0, 5, 2, 3, 4, 9, 6, 7, 8, 13, 10, 11, 12, 17, 14, 15]),
+        };
+        let mut output = matrix.clone();
+        output.carve_seam(&Seam {
+            indices: vec![0, 9, 10, 15],
+            is_vertical: true,
         });
         assert_matrices_equal(
             matrix,
