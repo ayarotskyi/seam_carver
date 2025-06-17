@@ -20,16 +20,29 @@ pub fn spawn_seam_carver(
                 while match window_size_clone.try_read() {
                     Ok(next_window_size) => window_size == *next_window_size,
                     Err(_) => true,
-                } {
-                    let (vertical_seam, vertical_seam_energy) =
-                        extract_vertical_seam(&energy_matrix, &mut rng);
-                    let (horizontal_seam, horizontal_seam_energy) =
-                        extract_horizontal_seam(&energy_matrix, &mut rng);
-
-                    let lesser_energy_seam = if vertical_seam_energy < horizontal_seam_energy {
-                        vertical_seam
+                } || window_size.width < energy_matrix.width
+                    || window_size.height < energy_matrix.height()
+                {
+                    if window_size.width >= energy_matrix.width
+                        && window_size.height >= energy_matrix.height()
+                    {
+                        continue;
+                    }
+                    let lesser_energy_seam: Seam = if window_size.width >= energy_matrix.width {
+                        extract_horizontal_seam(&energy_matrix, &mut rng).0
+                    } else if window_size.height >= energy_matrix.height() {
+                        extract_vertical_seam(&energy_matrix, &mut rng).0
                     } else {
-                        horizontal_seam
+                        let (vertical_seam, vertical_seam_energy) =
+                            extract_vertical_seam(&energy_matrix, &mut rng);
+                        let (horizontal_seam, horizontal_seam_energy) =
+                            extract_horizontal_seam(&energy_matrix, &mut rng);
+
+                        if vertical_seam_energy < horizontal_seam_energy {
+                            vertical_seam
+                        } else {
+                            horizontal_seam
+                        }
                     };
 
                     carved_image_matrix.carve_seam(&lesser_energy_seam);
