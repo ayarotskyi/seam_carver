@@ -21,8 +21,13 @@ pub fn spawn_seam_carver(
                     Ok(next_window_size) => {
                         if *next_window_size != window_size {
                             window_size = next_window_size.clone();
-                            energy_matrix = gradient_magnitude(&grayscale(&image_matrix));
-                            carved_image_matrix = image_matrix.clone();
+                            if window_size.height >= energy_matrix.height()
+                                && window_size.width >= energy_matrix.width
+                            {
+                                energy_matrix = gradient_magnitude(&grayscale(&image_matrix));
+                                carved_image_matrix = image_matrix.clone();
+                                continue;
+                            }
                         }
                     }
                     Err(_) => {}
