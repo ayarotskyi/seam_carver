@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{structs::matrix::Matrix, *};
 
 pub fn grayscale(image_matrix: &Matrix<Color>) -> Box<Matrix<f32>> {
     Box::new(Matrix {

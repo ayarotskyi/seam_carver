@@ -1,16 +1,15 @@
+use macroquad::prelude::*;
 use rayon::prelude::*;
 use std::{
     env,
     f32::INFINITY,
     sync::{Arc, RwLock},
 };
-mod matrix;
-use matrix::*;
+
+use crate::{seam_carver::spawn_seam_carver, structs::window_size::WindowSize};
 mod seam_carver;
-use macroquad::prelude::*;
+mod structs;
 mod utils;
-use seam_carver::*;
-use utils::*;
 
 fn window_conf() -> Conf {
     Conf {
@@ -19,12 +18,6 @@ fn window_conf() -> Conf {
         window_height: 500,
         ..Default::default()
     }
-}
-
-#[derive(Clone, PartialEq)]
-pub struct WindowSize {
-    pub height: usize,
-    pub width: usize,
 }
 
 #[macroquad::main(window_conf)]

@@ -1,6 +1,10 @@
-use crate::*;
+use crate::{structs::matrix::Seam, utils::*, WindowSize};
 use ::rand::thread_rng;
-use std::thread;
+use macroquad::texture::Image;
+use std::{
+    sync::{Arc, RwLock},
+    thread,
+};
 
 pub fn spawn_seam_carver(
     displayed_image: &Arc<RwLock<Image>>,
