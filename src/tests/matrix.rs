@@ -250,3 +250,57 @@ fn test_vertical_seam_extraction() {
     let (seam, _) = energy_matrix.extract_vertical_seam(&mut rng);
     assert_eq!(seam.indices, [0, 4, 8]);
 }
+
+#[test]
+fn test_vertical_seam_recovering() {
+    let matrix = Matrix {
+        width: 3,
+        vector: Vec::from([
+            BgColor::Red,
+            BgColor::Green,
+            BgColor::Yellow,
+            BgColor::Blue,
+            BgColor::Red,
+            BgColor::White,
+            BgColor::Cyan,
+            BgColor::Black,
+            BgColor::Yellow,
+            BgColor::Cyan,
+            BgColor::Red,
+            BgColor::Green,
+        ]),
+        original_indices: Vec::from([1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14]),
+    };
+
+    let seam = Seam {
+        indices: Vec::from([0, 5, 10, 15]),
+        is_vertical: true,
+    };
+
+    let original_matrix = Matrix::new(
+        Vec::from([
+            BgColor::Blue,
+            BgColor::Red,
+            BgColor::Green,
+            BgColor::Yellow,
+            BgColor::Blue,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::White,
+            BgColor::Cyan,
+            BgColor::Black,
+            BgColor::White,
+            BgColor::Yellow,
+            BgColor::Cyan,
+            BgColor::Red,
+            BgColor::Green,
+            BgColor::Blue,
+        ]),
+        4,
+    );
+
+    let mut output = matrix.clone();
+    output.recover_vertical_seam(&seam, &original_matrix);
+
+    assert_matrices_equal(matrix, output, original_matrix);
+}

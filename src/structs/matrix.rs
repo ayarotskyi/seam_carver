@@ -111,6 +111,7 @@ where
             self.carve_horizontal_seam(seam);
         }
     }
+    fn recover_vertical_seam(&mut self, seam: &Seam, original_matrix: &Self) {}
 }
 
 impl Matrix<f32> {
