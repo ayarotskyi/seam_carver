@@ -78,7 +78,7 @@ fn assert_matrices_equal(
 }
 
 #[test]
-fn test_horizontal_carving() {
+fn horizontal_carving() {
     let matrix = Matrix::new(
         Vec::from([
             BgColor::Black,
@@ -129,7 +129,7 @@ fn test_horizontal_carving() {
 }
 
 #[test]
-fn test_vertical_carving() {
+fn vertical_carving() {
     let matrix = Matrix::new(
         Vec::from([
             BgColor::Black,
@@ -182,7 +182,7 @@ fn test_vertical_carving() {
 // after horizontal carving not all original indices are ordered,
 // which caused bugs in previous versions of the vertical carver
 #[test]
-fn test_vertical_incorrect_original_index_order() {
+fn vertical_incorrect_original_index_order() {
     let matrix = Matrix {
         vector: Vec::from([
             BgColor::Black,
@@ -234,7 +234,7 @@ fn test_vertical_incorrect_original_index_order() {
 }
 
 #[test]
-fn test_horizontal_seam_extraction() {
+fn horizontal_seam_extraction() {
     let mut rng = thread_rng();
     let energy_matrix: Matrix<f32> =
         Matrix::new(Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0]), 3);
@@ -243,7 +243,7 @@ fn test_horizontal_seam_extraction() {
 }
 
 #[test]
-fn test_vertical_seam_extraction() {
+fn vertical_seam_extraction() {
     let mut rng = thread_rng();
     let energy_matrix: Matrix<f32> =
         Matrix::new(Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0]), 3);
@@ -252,7 +252,7 @@ fn test_vertical_seam_extraction() {
 }
 
 #[test]
-fn test_vertical_seam_recovering() {
+fn vertical_seam_recovering() {
     let matrix = Matrix {
         width: 3,
         vector: Vec::from([
