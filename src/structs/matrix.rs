@@ -111,7 +111,35 @@ where
             self.carve_horizontal_seam(seam);
         }
     }
-    fn recover_vertical_seam(&mut self, seam: &Seam, original_matrix: &Self) {}
+    fn recover_vertical_seam(&mut self, seam: &Seam, original_matrix: &Self) {
+        let recovered_vector_length = self.vector.len() + self.height();
+
+        let mut seam_iterator = seam.indices.iter();
+        let mut next_original_index = match seam_iterator.next() {
+            Some(index) => *index,
+            None => recovered_vector_length,
+        };
+        let mut recovered_vector = Vec::with_capacity(recovered_vector_length);
+
+        for index in 0..self.vector.len() {
+            let original_index = self.original_indices[index];
+            if original_index >= next_original_index {
+                let temp_index = next_original_index;
+                next_original_index = match seam_iterator.next() {
+                    Some(index) => *index,
+                    None => recovered_vector_length,
+                };
+                recovered_vector.push(original_matrix.vector[temp_index]);
+            }
+            recovered_vector.push(self.vector[index]);
+        }
+        if next_original_index < recovered_vector_length {
+            recovered_vector.push(original_matrix.vector[next_original_index]);
+        }
+
+        self.vector = recovered_vector;
+        self.width = self.width + 1;
+    }
 }
 
 impl Matrix<f32> {

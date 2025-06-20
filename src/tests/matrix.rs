@@ -182,7 +182,7 @@ fn vertical_carving() {
 // after horizontal carving not all original indices are ordered,
 // which caused bugs in previous versions of the vertical carver
 #[test]
-fn vertical_incorrect_original_index_order() {
+fn vertical_seam_carving_unordered() {
     let matrix = Matrix {
         vector: Vec::from([
             BgColor::Black,
@@ -303,4 +303,50 @@ fn vertical_seam_recovering() {
     output.recover_vertical_seam(&seam, &original_matrix);
 
     assert_matrices_equal(matrix, output, original_matrix);
+}
+
+#[test]
+fn vertical_seam_recovering_unordered() {
+    let matrix = Matrix {
+        width: 2,
+        vector: Vec::from([BgColor::Red, BgColor::Yellow, BgColor::Red, BgColor::Cyan]),
+        original_indices: Vec::from([1, 5, 6, 8]),
+    };
+
+    let seam = Seam {
+        indices: Vec::from([3, 7]),
+        is_vertical: true,
+    };
+
+    let original_matrix = Matrix::new(
+        Vec::from([
+            BgColor::Blue,
+            BgColor::Red,
+            BgColor::Green,
+            BgColor::Yellow,
+            BgColor::Blue,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::White,
+            BgColor::Cyan,
+        ]),
+        3,
+    );
+
+    let expected_output = Matrix::new(
+        Vec::from([
+            BgColor::Red,
+            BgColor::Yellow,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::White,
+            BgColor::Cyan,
+        ]),
+        3,
+    );
+
+    let mut output = matrix.clone();
+    output.recover_vertical_seam(&seam, &original_matrix);
+
+    assert_matrices_equal(matrix, output, expected_output);
 }
