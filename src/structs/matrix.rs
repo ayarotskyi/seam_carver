@@ -140,6 +140,7 @@ where
         self.vector = recovered_vector;
         self.width = self.width + 1;
     }
+    fn recover_horizontal_seam(&mut self, seam: &Seam, original_matrix: &Self) {}
 }
 
 impl Matrix<f32> {

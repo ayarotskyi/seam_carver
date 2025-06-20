@@ -252,7 +252,7 @@ fn vertical_seam_extraction() {
 }
 
 #[test]
-fn vertical_seam_recovering() {
+fn vertical_seam_recovery() {
     let matrix = Matrix {
         width: 3,
         vector: Vec::from([
@@ -273,7 +273,7 @@ fn vertical_seam_recovering() {
     };
 
     let seam = Seam {
-        indices: Vec::from([0, 5, 10, 15]),
+        indices: Vec::from([0, 5, 10, 15, 18]),
         is_vertical: true,
     };
 
@@ -306,15 +306,20 @@ fn vertical_seam_recovering() {
 }
 
 #[test]
-fn vertical_seam_recovering_unordered() {
+fn vertical_seam_recovery_unordered() {
     let matrix = Matrix {
         width: 2,
-        vector: Vec::from([BgColor::Red, BgColor::Yellow, BgColor::Red, BgColor::Cyan]),
+        vector: Vec::from([
+            BgColor::Yellow,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::Cyan,
+        ]),
         original_indices: Vec::from([1, 5, 6, 8]),
     };
 
     let seam = Seam {
-        indices: Vec::from([3, 7]),
+        indices: Vec::from([1, 7]),
         is_vertical: true,
     };
 
@@ -349,4 +354,89 @@ fn vertical_seam_recovering_unordered() {
     output.recover_vertical_seam(&seam, &original_matrix);
 
     assert_matrices_equal(matrix, output, expected_output);
+}
+
+#[test]
+fn horizontal_seam_recovery() {
+    let matrix = Matrix {
+        width: 3,
+        vector: Vec::from([
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::White,
+            BgColor::Cyan,
+        ]),
+        original_indices: Vec::from([1, 3, 5, 6, 7, 8]),
+    };
+
+    let seam = Seam {
+        indices: Vec::from([0, 4, 2]),
+        is_vertical: false,
+    };
+
+    let original_matrix = Matrix::new(
+        Vec::from([
+            BgColor::Blue,
+            BgColor::Red,
+            BgColor::Green,
+            BgColor::Yellow,
+            BgColor::Blue,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::White,
+            BgColor::Cyan,
+        ]),
+        3,
+    );
+
+    let mut output = matrix.clone();
+    output.recover_horizontal_seam(&seam, &original_matrix);
+
+    assert_matrices_equal(matrix, output, original_matrix);
+}
+
+#[test]
+fn mixed_seam_recovery() {
+    let matrix = Matrix {
+        width: 2,
+        vector: Vec::from([
+            BgColor::Yellow,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::Cyan,
+        ]),
+        original_indices: Vec::from([1, 5, 6, 8]),
+    };
+
+    let horizontal_seam = Seam {
+        indices: Vec::from([0, 4, 2]),
+        is_vertical: false,
+    };
+    let vertical_seam = Seam {
+        indices: Vec::from([1, 7]),
+        is_vertical: true,
+    };
+
+    let original_matrix = Matrix::new(
+        Vec::from([
+            BgColor::Blue,
+            BgColor::Red,
+            BgColor::Green,
+            BgColor::Yellow,
+            BgColor::Blue,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::White,
+            BgColor::Cyan,
+        ]),
+        3,
+    );
+
+    let mut output = matrix.clone();
+    output.recover_vertical_seam(&horizontal_seam, &original_matrix);
+    output.recover_vertical_seam(&vertical_seam, &original_matrix);
+
+    assert_matrices_equal(matrix, output, original_matrix);
 }
