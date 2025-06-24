@@ -26,7 +26,7 @@ pub fn spawn_seam_carver(
                         if *next_window_size != window_size {
                             window_size = next_window_size.clone();
                             if window_size.height >= energy_matrix.height()
-                                && window_size.width >= energy_matrix.width
+                                && window_size.width >= energy_matrix.width()
                             {
                                 energy_matrix = gradient_magnitude(&grayscale(&image_matrix));
                                 carved_image_matrix = image_matrix.clone();
@@ -37,13 +37,13 @@ pub fn spawn_seam_carver(
                     Err(_) => {}
                 };
 
-                if window_size.width >= energy_matrix.width
+                if window_size.width >= energy_matrix.width()
                     && window_size.height >= energy_matrix.height()
                 {
                     continue;
                 }
 
-                let lesser_energy_seam: Seam = if window_size.width >= energy_matrix.width {
+                let lesser_energy_seam: Seam = if window_size.width >= energy_matrix.width() {
                     energy_matrix.extract_horizontal_seam(&mut rng).0
                 } else if window_size.height >= energy_matrix.height() {
                     energy_matrix.extract_vertical_seam(&mut rng).0

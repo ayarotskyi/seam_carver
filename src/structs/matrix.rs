@@ -5,75 +5,87 @@ use ::rand::{rngs::ThreadRng, Rng};
 #[path = "../tests/matrix.rs"]
 mod matrix_tests;
 
+#[derive(Clone, Copy)]
+pub struct MemoryPoint<T> {
+    pub value: T,
+    pub original_index: usize,
+}
+
 #[derive(Clone)]
 pub struct Seam {
-    pub indices: Vec<usize>,
+    pub indices: Vec<MemoryPoint<usize>>,
     pub is_vertical: bool,
 }
 
 #[derive(Clone)]
 pub struct Matrix<T> {
-    pub width: usize,
-    pub vector: Vec<T>,
-    // we need to remember which item had which index before carving to be able to optimize carving and extraction
-    pub original_indices: Vec<usize>,
+    width: usize,
+    pub vector: Vec<MemoryPoint<T>>,
 }
 impl<T> Matrix<T>
 where
     T: Clone + std::marker::Send + Sync + Copy,
 {
+    pub fn width(&self) -> usize {
+        self.width
+    }
     pub fn height(&self) -> usize {
         self.vector.len() / self.width
     }
     pub fn new(vector: Vec<T>, width: usize) -> Self {
         Matrix {
             width: width,
-            original_indices: (0..vector.len()).collect(),
+            vector: vector
+                .into_iter()
+                .enumerate()
+                .map(|(index, value)| MemoryPoint {
+                    value: value,
+                    original_index: index,
+                })
+                .collect::<Vec<MemoryPoint<T>>>(),
+        }
+    }
+    pub fn from_memory_points(vector: Vec<MemoryPoint<T>>, width: usize) -> Self {
+        Matrix {
+            width: width,
             vector: vector,
         }
     }
     fn carve_horizontal_seam(&mut self, seam: &Seam) {
         let height = self.height();
 
-        let column_vectors: Vec<(Vec<T>, Vec<usize>)> = (0..self.width)
+        let column_vectors: Vec<Vec<MemoryPoint<T>>> = (0..self.width)
             .into_par_iter()
             .map(|column| {
                 let mut vector_result = Vec::with_capacity(self.height() - 1);
-                let mut original_indices_result = Vec::with_capacity(self.height() - 1);
                 for row in 0..height {
-                    let index = self.original_indices[row * self.width + column];
-                    if seam.indices[column] != index {
+                    let memory_point = self.vector[row * self.width + column];
+                    if seam.indices[column].original_index != memory_point.original_index {
                         vector_result.push(self.vector[row * self.width + column]);
-                        original_indices_result.push(index);
                     }
                 }
 
-                return (vector_result, original_indices_result);
+                return vector_result;
             })
-            .collect::<Vec<(Vec<T>, Vec<usize>)>>();
+            .collect::<Vec<Vec<MemoryPoint<T>>>>();
 
         let result = (0..(self.height() - 1))
             .into_par_iter()
             .map(|row| {
                 column_vectors
                     .iter()
-                    .map(|column_vector| (column_vector.0[row], column_vector.1[row]))
-                    .collect::<Vec<(T, usize)>>()
+                    .map(|column_vector| column_vector[row])
+                    .collect::<Vec<MemoryPoint<T>>>()
             })
-            .collect::<Vec<Vec<(T, usize)>>>()
+            .collect::<Vec<Vec<MemoryPoint<T>>>>()
             .concat();
 
-        *self = Matrix {
-            width: self.width,
-            vector: result.iter().map(|item| item.0).collect(),
-            original_indices: result.iter().map(|item| item.1).collect(),
-        };
+        self.vector = result;
     }
     fn carve_vertical_seam(&mut self, seam: &Seam) {
         let mut indices_to_remove = seam.indices.iter();
 
-        let mut resulting_vector: Vec<T> = Vec::with_capacity(self.vector.len() - self.height());
-        let mut resulting_original_indices: Vec<usize> =
+        let mut resulting_vector: Vec<MemoryPoint<T>> =
             Vec::with_capacity(self.vector.len() - self.height());
 
         let mut index_to_remove = match indices_to_remove.next() {
@@ -83,9 +95,8 @@ where
             Some(index_to_remove) => *index_to_remove,
         };
 
-        for (index, value) in self.vector.iter().enumerate() {
-            let original_index = self.original_indices[index];
-            if index_to_remove == original_index {
+        for memory_point in self.vector.iter() {
+            if index_to_remove.original_index == memory_point.original_index {
                 index_to_remove = match indices_to_remove.next() {
                     None => {
                         continue;
@@ -94,15 +105,11 @@ where
                 };
                 continue;
             }
-            resulting_vector.push(*value);
-            resulting_original_indices.push(original_index);
+            resulting_vector.push(*memory_point);
         }
 
-        *self = Matrix {
-            width: self.width - 1,
-            vector: resulting_vector,
-            original_indices: resulting_original_indices,
-        };
+        self.vector = resulting_vector;
+        self.width = self.width - 1;
     }
     pub fn carve_seam(&mut self, seam: &Seam) {
         if seam.is_vertical {
@@ -116,87 +123,76 @@ where
 
         let mut seam_iterator = seam.indices.iter();
         let mut next_original_index = match seam_iterator.next() {
-            Some(index) => *index,
+            Some(index) => index.original_index,
             None => recovered_vector_length,
         };
         let mut recovered_vector = Vec::with_capacity(recovered_vector_length);
-        let mut recovered_original_indices = Vec::with_capacity(recovered_vector_length);
 
-        for index in 0..self.vector.len() {
-            let original_index = self.original_indices[index];
-            if original_index >= next_original_index {
+        self.vector.iter().for_each(|memory_point| {
+            if memory_point.original_index >= next_original_index {
                 let temp_index = next_original_index;
                 next_original_index = match seam_iterator.next() {
-                    Some(index) => *index,
+                    Some(index) => index.original_index,
                     None => recovered_vector_length,
                 };
                 recovered_vector.push(original_matrix.vector[temp_index]);
-                recovered_original_indices.push(temp_index);
             }
-            recovered_vector.push(self.vector[index]);
-            recovered_original_indices.push(original_index);
-        }
+            recovered_vector.push(*memory_point);
+        });
         if next_original_index < recovered_vector_length {
             recovered_vector.push(original_matrix.vector[next_original_index]);
-            recovered_original_indices.push(next_original_index);
         }
 
         self.vector = recovered_vector;
-        self.original_indices = recovered_original_indices;
         self.width = self.width + 1;
     }
     fn recover_horizontal_seam(&mut self, seam: &Seam, original_matrix: &Self) {
         let recovered_height = self.height() + 1;
 
-        let column_vectors: Vec<(Vec<T>, Vec<usize>)> = (0..self.width)
+        let column_vectors: Vec<Vec<MemoryPoint<T>>> = (0..self.width)
             .into_iter()
             .map(|column| {
-                let seam_index = seam.indices[column];
+                let seam_index = seam.indices[column].original_index;
 
-                let mut recovered_values = Vec::with_capacity(recovered_height);
-                let mut recovered_original_indices = Vec::with_capacity(recovered_height);
-                let mut original_column = Vec::with_capacity(self.height());
+                let mut recovered_points = Vec::with_capacity(recovered_height);
                 let mut seam_inserted = false;
                 for row in 0..(recovered_height - 1) {
                     let index = row * self.width + column;
-                    let original_index = self.original_indices[index];
-                    if original_index >= seam_index && !seam_inserted {
-                        recovered_values.push(original_matrix.vector[seam_index]);
-                        recovered_original_indices.push(seam_index);
+                    let memory_point = self.vector[index];
+                    if memory_point.original_index >= seam_index && !seam_inserted {
+                        recovered_points.push(original_matrix.vector[seam_index]);
                         seam_inserted = true;
                     }
-                    original_column.push(original_index);
 
-                    recovered_values.push(self.vector[index]);
-                    recovered_original_indices.push(original_index);
+                    recovered_points.push(memory_point);
                 }
 
-                return (recovered_values, recovered_original_indices);
+                return recovered_points;
             })
-            .collect::<Vec<(Vec<T>, Vec<usize>)>>();
+            .collect::<Vec<Vec<MemoryPoint<T>>>>();
 
         let result = (0..recovered_height)
             .into_par_iter()
             .map(|row| {
                 column_vectors
                     .iter()
-                    .map(|column_vector| (column_vector.0[row], column_vector.1[row]))
-                    .collect::<Vec<(T, usize)>>()
+                    .map(|column_vector| column_vector[row])
+                    .collect::<Vec<MemoryPoint<T>>>()
             })
-            .collect::<Vec<Vec<(T, usize)>>>()
+            .collect::<Vec<Vec<MemoryPoint<T>>>>()
             .concat();
 
-        *self = Matrix {
-            width: self.width,
-            vector: result.iter().map(|item| item.0).collect(),
-            original_indices: result.iter().map(|item| item.1).collect(),
-        };
+        self.vector = result;
     }
 }
 
 impl Matrix<f32> {
     pub fn extract_vertical_seam(&self, rng: &mut ThreadRng) -> (Seam, f32) {
-        let mut dp_result = self.vector.clone();
+        let mut dp_result = self
+            .vector
+            .iter()
+            .map(|memory_point| memory_point.value)
+            .collect::<Vec<f32>>();
         let width = self.width;
         let height = self.height();
 
@@ -277,19 +273,26 @@ impl Matrix<f32> {
             Seam {
                 indices: indices
                     .iter()
-                    .map(|index| self.original_indices[*index])
+                    .map(|index| MemoryPoint {
+                        value: *index,
+                        original_index: self.vector[*index].original_index,
+                    })
                     .collect(),
                 is_vertical: true,
             },
             indices
                 .iter()
-                .map(|index| self.vector[*index])
+                .map(|index| self.vector[*index].value)
                 .reduce(|acc, value| acc + value)
                 .unwrap(),
         )
     }
     pub fn extract_horizontal_seam(&self, rng: &mut ThreadRng) -> (Seam, f32) {
-        let mut dp_result = self.vector.clone();
+        let mut dp_result = self
+            .vector
+            .iter()
+            .map(|memory_point| memory_point.value)
+            .collect::<Vec<f32>>();
         let width = self.width;
         let height = self.vector.len() / width;
 
@@ -371,13 +374,16 @@ impl Matrix<f32> {
             Seam {
                 indices: indices
                     .iter()
-                    .map(|index| self.original_indices[*index])
+                    .map(|index| MemoryPoint {
+                        value: *index,
+                        original_index: self.vector[*index].original_index,
+                    })
                     .collect(),
                 is_vertical: false,
             },
             indices
                 .iter()
-                .map(|index| self.vector[*index])
+                .map(|index| self.vector[*index].value)
                 .reduce(|acc, value| acc + value)
                 .unwrap(),
         )

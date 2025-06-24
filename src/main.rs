@@ -2,7 +2,6 @@ use macroquad::prelude::*;
 use rayon::prelude::*;
 use std::{
     env,
-    f32::INFINITY,
     sync::{Arc, RwLock},
 };
 
