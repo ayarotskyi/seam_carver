@@ -120,6 +120,7 @@ where
             None => recovered_vector_length,
         };
         let mut recovered_vector = Vec::with_capacity(recovered_vector_length);
+        let mut recovered_original_indices = Vec::with_capacity(recovered_vector_length);
 
         for index in 0..self.vector.len() {
             let original_index = self.original_indices[index];
@@ -130,17 +131,67 @@ where
                     None => recovered_vector_length,
                 };
                 recovered_vector.push(original_matrix.vector[temp_index]);
+                recovered_original_indices.push(temp_index);
             }
             recovered_vector.push(self.vector[index]);
+            recovered_original_indices.push(original_index);
         }
         if next_original_index < recovered_vector_length {
             recovered_vector.push(original_matrix.vector[next_original_index]);
+            recovered_original_indices.push(next_original_index);
         }
 
         self.vector = recovered_vector;
+        self.original_indices = recovered_original_indices;
         self.width = self.width + 1;
     }
-    fn recover_horizontal_seam(&mut self, seam: &Seam, original_matrix: &Self) {}
+    fn recover_horizontal_seam(&mut self, seam: &Seam, original_matrix: &Self) {
+        let recovered_height = self.height() + 1;
+
+        let column_vectors: Vec<(Vec<T>, Vec<usize>)> = (0..self.width)
+            .into_iter()
+            .map(|column| {
+                let seam_index = seam.indices[column];
+
+                let mut recovered_values = Vec::with_capacity(recovered_height);
+                let mut recovered_original_indices = Vec::with_capacity(recovered_height);
+                let mut original_column = Vec::with_capacity(self.height());
+                let mut seam_inserted = false;
+                for row in 0..(recovered_height - 1) {
+                    let index = row * self.width + column;
+                    let original_index = self.original_indices[index];
+                    if original_index >= seam_index && !seam_inserted {
+                        recovered_values.push(original_matrix.vector[seam_index]);
+                        recovered_original_indices.push(seam_index);
+                        seam_inserted = true;
+                    }
+                    original_column.push(original_index);
+
+                    recovered_values.push(self.vector[index]);
+                    recovered_original_indices.push(original_index);
+                }
+
+                return (recovered_values, recovered_original_indices);
+            })
+            .collect::<Vec<(Vec<T>, Vec<usize>)>>();
+
+        let result = (0..recovered_height)
+            .into_par_iter()
+            .map(|row| {
+                column_vectors
+                    .iter()
+                    .map(|column_vector| (column_vector.0[row], column_vector.1[row]))
+                    .collect::<Vec<(T, usize)>>()
+            })
+            .collect::<Vec<Vec<(T, usize)>>>()
+            .concat();
+
+        *self = Matrix {
+            width: self.width,
+            vector: result.iter().map(|item| item.0).collect(),
+            original_indices: result.iter().map(|item| item.1).collect(),
+        };
+    }
 }
 
 impl Matrix<f32> {
