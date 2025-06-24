@@ -1,4 +1,5 @@
 use ::rand::thread_rng;
+use std::fmt::Debug;
 
 use crate::structs::matrix::{Matrix, Seam};
 
@@ -43,11 +44,17 @@ impl BgColor {
             BgColor::White => 47,
         }
     }
+    pub fn to_string(&self) -> String {
+        let ansi_code = self.to_ansi_code();
+        return format!("\x1b[30;{}m  \x1b[0m", ansi_code);
+    }
 }
 
-fn with_background(text: &str, bg_color: &BgColor) -> String {
-    let ansi_code = bg_color.to_ansi_code();
-    format!("\x1b[30;{}m{}\x1b[0m", ansi_code, text)
+impl Debug for BgColor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = self.to_string();
+        write!(f, "{}", string)
+    }
 }
 
 fn draw_matrix(matrix: Matrix<BgColor>) -> String {
@@ -55,7 +62,7 @@ fn draw_matrix(matrix: Matrix<BgColor>) -> String {
 
     for row in matrix.vector.chunks(matrix.width) {
         for bg_color in row {
-            result.push_str(&with_background("  ", bg_color));
+            result.push_str(&bg_color.to_string());
         }
         result.push_str("\n");
     }
@@ -407,7 +414,7 @@ fn mixed_seam_recovery() {
             BgColor::Red,
             BgColor::Cyan,
         ]),
-        original_indices: Vec::from([1, 5, 6, 8]),
+        original_indices: Vec::from([3, 5, 6, 8]),
     };
 
     let horizontal_seam = Seam {
@@ -435,8 +442,8 @@ fn mixed_seam_recovery() {
     );
 
     let mut output = matrix.clone();
-    output.recover_vertical_seam(&horizontal_seam, &original_matrix);
     output.recover_vertical_seam(&vertical_seam, &original_matrix);
+    output.recover_horizontal_seam(&horizontal_seam, &original_matrix);
 
     assert_matrices_equal(matrix, output, original_matrix);
 }
