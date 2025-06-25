@@ -13,7 +13,7 @@ pub struct MemoryPoint<T> {
 
 #[derive(Clone)]
 pub struct Seam {
-    pub indices: Vec<MemoryPoint<usize>>,
+    pub indices: Vec<usize>,
     pub is_vertical: bool,
 }
 
@@ -60,7 +60,7 @@ where
                 let mut vector_result = Vec::with_capacity(self.height() - 1);
                 for row in 0..height {
                     let memory_point = self.vector[row * self.width + column];
-                    if seam.indices[column].original_index != memory_point.original_index {
+                    if seam.indices[column] != memory_point.original_index {
                         vector_result.push(self.vector[row * self.width + column]);
                     }
                 }
@@ -96,7 +96,7 @@ where
         };
 
         for memory_point in self.vector.iter() {
-            if index_to_remove.original_index == memory_point.original_index {
+            if index_to_remove == memory_point.original_index {
                 index_to_remove = match indices_to_remove.next() {
                     None => {
                         continue;
@@ -119,29 +119,38 @@ where
         }
     }
     fn recover_vertical_seam(&mut self, seam: &Seam, original_matrix: &Self) {
-        let recovered_vector_length = self.vector.len() + self.height();
+        let recovered_vector = seam
+            .indices
+            .iter()
+            .take(self.height())
+            .enumerate()
+            .map(|(row, original_index)| {
+                let mut recovered_row = Vec::with_capacity(self.width + 1);
 
-        let mut seam_iterator = seam.indices.iter();
-        let mut next_original_index = match seam_iterator.next() {
-            Some(index) => index.original_index,
-            None => recovered_vector_length,
-        };
-        let mut recovered_vector = Vec::with_capacity(recovered_vector_length);
+                for column in 0..self.width {
+                    let memory_point = self.vector[row * self.width + column];
+                    if memory_point.original_index % (self.width + 1)
+                        >= *original_index % (self.width + 1)
+                    {
+                        recovered_row.push(original_matrix.vector[*original_index]);
+                        recovered_row.extend(
+                            (column..self.width)
+                                .into_iter()
+                                .map(|column| self.vector[row * self.width + column]),
+                        );
+                        break;
+                    }
+                    recovered_row.push(memory_point);
+                }
 
-        self.vector.iter().for_each(|memory_point| {
-            if memory_point.original_index >= next_original_index {
-                let temp_index = next_original_index;
-                next_original_index = match seam_iterator.next() {
-                    Some(index) => index.original_index,
-                    None => recovered_vector_length,
-                };
-                recovered_vector.push(original_matrix.vector[temp_index]);
-            }
-            recovered_vector.push(*memory_point);
-        });
-        if next_original_index < recovered_vector_length {
-            recovered_vector.push(original_matrix.vector[next_original_index]);
-        }
+                if recovered_row.len() < self.width + 1 {
+                    recovered_row.push(original_matrix.vector[*original_index]);
+                }
+
+                return recovered_row;
+            })
+            .collect::<Vec<Vec<MemoryPoint<T>>>>()
+            .concat();
 
         self.vector = recovered_vector;
         self.width = self.width + 1;
@@ -152,14 +161,14 @@ where
         let column_vectors: Vec<Vec<MemoryPoint<T>>> = (0..self.width)
             .into_iter()
             .map(|column| {
-                let seam_index = seam.indices[column].original_index;
+                let seam_index = seam.indices[column];
 
                 let mut recovered_points = Vec::with_capacity(recovered_height);
                 let mut seam_inserted = false;
                 for row in 0..(recovered_height - 1) {
                     let index = row * self.width + column;
                     let memory_point = self.vector[index];
-                    if memory_point.original_index >= seam_index && !seam_inserted {
+                    if index >= seam_index && !seam_inserted {
                         recovered_points.push(original_matrix.vector[seam_index]);
                         seam_inserted = true;
                     }
@@ -273,10 +282,7 @@ impl Matrix<f32> {
             Seam {
                 indices: indices
                     .iter()
-                    .map(|index| MemoryPoint {
-                        value: *index,
-                        original_index: self.vector[*index].original_index,
-                    })
+                    .map(|index| self.vector[*index].original_index)
                     .collect(),
                 is_vertical: true,
             },
@@ -374,10 +380,7 @@ impl Matrix<f32> {
             Seam {
                 indices: indices
                     .iter()
-                    .map(|index| MemoryPoint {
-                        value: *index,
-                        original_index: self.vector[*index].original_index,
-                    })
+                    .map(|index| self.vector[*index].original_index)
                     .collect(),
                 is_vertical: false,
             },

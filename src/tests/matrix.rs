@@ -111,13 +111,7 @@ fn horizontal_carving() {
     );
     let mut output = matrix.clone();
     output.carve_seam(&Seam {
-        indices: vec![0, 5, 6, 11]
-            .iter()
-            .map(|index| MemoryPoint {
-                value: *index,
-                original_index: *index,
-            })
-            .collect(),
+        indices: vec![0, 5, 6, 11],
         is_vertical: false,
     });
     assert_matrices_equal(
@@ -168,13 +162,7 @@ fn vertical_carving() {
     );
     let mut output = matrix.clone();
     output.carve_seam(&Seam {
-        indices: vec![0, 5, 10, 15]
-            .iter()
-            .map(|index| MemoryPoint {
-                value: *index,
-                original_index: *index,
-            })
-            .collect(),
+        indices: vec![0, 5, 10, 15],
         is_vertical: true,
     });
     assert_matrices_equal(
@@ -236,13 +224,7 @@ fn vertical_seam_carving_unordered() {
     );
     let mut output = matrix.clone();
     output.carve_seam(&Seam {
-        indices: vec![0, 9, 10, 15]
-            .iter()
-            .map(|index| MemoryPoint {
-                value: *index,
-                original_index: *index,
-            })
-            .collect(),
+        indices: vec![0, 9, 10, 15],
         is_vertical: true,
     });
     assert_matrices_equal(
@@ -274,13 +256,7 @@ fn horizontal_seam_extraction() {
     let energy_matrix: Matrix<f32> =
         Matrix::new(Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0]), 3);
     let (seam, _) = energy_matrix.extract_horizontal_seam(&mut rng);
-    assert_eq!(
-        seam.indices
-            .iter()
-            .map(|memory_point| memory_point.original_index)
-            .collect::<Vec<usize>>(),
-        [0, 4, 8]
-    );
+    assert_eq!(seam.indices, [0, 4, 8]);
 }
 
 #[test]
@@ -289,13 +265,7 @@ fn vertical_seam_extraction() {
     let energy_matrix: Matrix<f32> =
         Matrix::new(Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0]), 3);
     let (seam, _) = energy_matrix.extract_vertical_seam(&mut rng);
-    assert_eq!(
-        seam.indices
-            .iter()
-            .map(|memory_point| memory_point.original_index)
-            .collect::<Vec<usize>>(),
-        [0, 4, 8]
-    );
+    assert_eq!(seam.indices, [0, 4, 8]);
 }
 
 #[test]
@@ -326,13 +296,7 @@ fn vertical_seam_recovery() {
     );
 
     let seam = Seam {
-        indices: Vec::from([0, 5, 10, 15, 18])
-            .iter()
-            .map(|index| MemoryPoint {
-                value: *index,
-                original_index: *index,
-            })
-            .collect(),
+        indices: Vec::from([0, 5, 10, 15]),
         is_vertical: true,
     };
 
@@ -374,7 +338,7 @@ fn vertical_seam_recovery_unordered() {
             BgColor::Cyan,
         ])
         .iter()
-        .zip(Vec::from([1, 5, 6, 8]))
+        .zip(Vec::from([3, 5, 6, 8]))
         .map(|(color, original_index)| MemoryPoint {
             value: *color,
             original_index: original_index,
@@ -384,13 +348,7 @@ fn vertical_seam_recovery_unordered() {
     );
 
     let seam = Seam {
-        indices: Vec::from([1, 7])
-            .iter()
-            .map(|index| MemoryPoint {
-                value: *index,
-                original_index: *index,
-            })
-            .collect(),
+        indices: Vec::from([1, 7]),
         is_vertical: true,
     };
 
@@ -411,8 +369,8 @@ fn vertical_seam_recovery_unordered() {
 
     let expected_output = Matrix::new(
         Vec::from([
-            BgColor::Red,
             BgColor::Yellow,
+            BgColor::Red,
             BgColor::Yellow,
             BgColor::Red,
             BgColor::White,
@@ -449,13 +407,7 @@ fn horizontal_seam_recovery() {
     );
 
     let seam = Seam {
-        indices: Vec::from([0, 4, 2])
-            .iter()
-            .map(|index| MemoryPoint {
-                value: *index,
-                original_index: *index,
-            })
-            .collect(),
+        indices: Vec::from([0, 4, 2]),
         is_vertical: false,
     };
 
@@ -500,23 +452,11 @@ fn mixed_seam_recovery() {
     );
 
     let horizontal_seam = Seam {
-        indices: Vec::from([0, 4, 2])
-            .iter()
-            .map(|index| MemoryPoint {
-                value: *index,
-                original_index: *index,
-            })
-            .collect(),
+        indices: Vec::from([0, 4, 2]),
         is_vertical: false,
     };
     let vertical_seam = Seam {
-        indices: Vec::from([1, 7])
-            .iter()
-            .map(|index| MemoryPoint {
-                value: *index,
-                original_index: *index,
-            })
-            .collect(),
+        indices: Vec::from([1, 7]),
         is_vertical: true,
     };
 
