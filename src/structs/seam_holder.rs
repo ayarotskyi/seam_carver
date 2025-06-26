@@ -31,7 +31,7 @@ impl SeamHolder {
                     (if n < self.vertical_seams.len() {
                         self.vertical_seams.len() - n
                     } else {
-                        self.vertical_seams.len()
+                        0
                     })..self.vertical_seams.len(),
                     [],
                 )
@@ -43,11 +43,12 @@ impl SeamHolder {
                     (if n < self.horizontal_seams.len() {
                         self.horizontal_seams.len() - n
                     } else {
-                        self.horizontal_seams.len()
+                        0
                     })..self.horizontal_seams.len(),
                     [],
                 )
                 .collect();
         }
     }
+    pub fn insert_overflowing_indices(&mut self, overflowing_indices: Vec<usize>, vertical: bool) {}
 }

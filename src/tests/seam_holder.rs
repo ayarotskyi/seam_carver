@@ -93,3 +93,59 @@ pub fn seam_popping_overflow() {
         expected
     );
 }
+
+#[test]
+pub fn vertical_overflowing_indices() {
+    let mut seam_holder = SeamHolder::new();
+    seam_holder.push_seam(Seam {
+        indices: [
+            (0..5).collect::<Vec<usize>>(),
+            (6..10).collect::<Vec<usize>>(),
+        ]
+        .concat(),
+        is_vertical: true,
+    });
+
+    let overflowing_indices: Vec<usize> = Vec::from([5]);
+
+    seam_holder.insert_overflowing_indices(overflowing_indices, true);
+
+    assert_eq!(
+        seam_holder.vertical_seams[0].indices,
+        (0..10).collect::<Vec<usize>>()
+    );
+}
+
+#[test]
+fn horizontal_overflowing_indices() {
+    let mut seam_holder = SeamHolder::new();
+    seam_holder.push_seam(Seam {
+        indices: [
+            (0..5).collect::<Vec<usize>>(),
+            (6..10).collect::<Vec<usize>>(),
+        ]
+        .concat(),
+        is_vertical: false,
+    });
+    seam_holder.push_seam(Seam {
+        indices: [
+            (10..17).collect::<Vec<usize>>(),
+            (18..20).collect::<Vec<usize>>(),
+        ]
+        .concat(),
+        is_vertical: false,
+    });
+
+    let overflowing_indices: Vec<usize> = Vec::from([5, 17]);
+
+    seam_holder.insert_overflowing_indices(overflowing_indices, false);
+
+    assert_eq!(
+        seam_holder.pop_n_seams(1, false)[0].indices,
+        (10..20).collect::<Vec<usize>>()
+    );
+    assert_eq!(
+        seam_holder.pop_n_seams(1, false)[0].indices,
+        (0..10).collect::<Vec<usize>>()
+    );
+}
