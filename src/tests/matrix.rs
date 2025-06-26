@@ -1,7 +1,10 @@
 use ::rand::thread_rng;
 use std::fmt::Debug;
 
-use crate::structs::matrix::{Matrix, MemoryPoint, Seam};
+use crate::structs::{
+    matrix::{Matrix, MemoryPoint, Seam},
+    seam_holder::SeamHolder,
+};
 
 impl<T: PartialEq> PartialEq for Matrix<T> {
     fn eq(&self, other: &Self) -> bool {
@@ -478,6 +481,62 @@ fn mixed_seam_recovery() {
     let mut output = matrix.clone();
     output.recover_vertical_seam(&vertical_seam, &original_matrix);
     output.recover_horizontal_seam(&horizontal_seam, &original_matrix);
+
+    assert_matrices_equal(matrix, output, original_matrix);
+}
+
+// in case when the seam is longer than the matrix' side
+// we'll need to insert overflowing indices into perpendicular seams
+// to ensure that their lengths match the new size of the matrix
+#[test]
+fn overflowing_seam_recovery() {
+    let matrix = Matrix::from_memory_points(
+        Vec::from([
+            BgColor::Yellow,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::Cyan,
+        ])
+        .iter()
+        .zip(Vec::from([3, 5, 6, 8]))
+        .map(|(color, original_index)| MemoryPoint {
+            value: *color,
+            original_index: original_index,
+        })
+        .collect(),
+        2,
+    );
+    let mut seam_holder = SeamHolder::new();
+    seam_holder.push_seam(Seam {
+        indices: Vec::from([0, 4, 2]),
+        is_vertical: false,
+    });
+    seam_holder.push_seam(Seam {
+        indices: Vec::from([1, 7]),
+        is_vertical: true,
+    });
+
+    let original_matrix = Matrix::new(
+        Vec::from([
+            BgColor::Blue,
+            BgColor::Red,
+            BgColor::Green,
+            BgColor::Yellow,
+            BgColor::Blue,
+            BgColor::Yellow,
+            BgColor::Red,
+            BgColor::White,
+            BgColor::Cyan,
+        ]),
+        3,
+    );
+
+    let mut output = matrix.clone();
+    let overflowing_indices =
+        output.recover_horizontal_seam(&seam_holder.pop_n_seams(1, false)[0], &original_matrix);
+    seam_holder.insert_overflowing_indices(overflowing_indices, true);
+
+    output.recover_vertical_seam(&seam_holder.pop_n_seams(1, true)[0], &original_matrix);
 
     assert_matrices_equal(matrix, output, original_matrix);
 }
