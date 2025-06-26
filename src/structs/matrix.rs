@@ -118,7 +118,7 @@ where
             self.carve_horizontal_seam(seam);
         }
     }
-    fn recover_vertical_seam(&mut self, seam: &Seam, original_matrix: &Self) {
+    fn recover_vertical_seam(&mut self, seam: &Seam, original_matrix: &Self) -> Vec<usize> {
         let recovered_vector = seam
             .indices
             .iter()
@@ -154,8 +154,10 @@ where
 
         self.vector = recovered_vector;
         self.width = self.width + 1;
+
+        return seam.indices.iter().cloned().skip(self.height()).collect();
     }
-    fn recover_horizontal_seam(&mut self, seam: &Seam, original_matrix: &Self) {
+    fn recover_horizontal_seam(&mut self, seam: &Seam, original_matrix: &Self) -> Vec<usize> {
         let recovered_height = self.height() + 1;
 
         let column_vectors: Vec<Vec<MemoryPoint<T>>> = (0..self.width)
@@ -168,20 +170,19 @@ where
                 for row in 0..(recovered_height - 1) {
                     let index = row * self.width + column;
                     let memory_point = self.vector[index];
-                    if index >= seam_index && !seam_inserted {
+                    if memory_point.original_index >= seam_index && !seam_inserted {
                         recovered_points.push(original_matrix.vector[seam_index]);
                         seam_inserted = true;
                     }
 
                     recovered_points.push(memory_point);
                 }
-
                 return recovered_points;
             })
             .collect::<Vec<Vec<MemoryPoint<T>>>>();
 
         let result = (0..recovered_height)
-            .into_par_iter()
+            .into_iter()
             .map(|row| {
                 column_vectors
                     .iter()
@@ -192,6 +193,8 @@ where
             .concat();
 
         self.vector = result;
+
+        return seam.indices.iter().cloned().skip(self.width).collect();
     }
 }
 
