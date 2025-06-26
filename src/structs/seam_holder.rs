@@ -50,5 +50,49 @@ impl SeamHolder {
                 .collect();
         }
     }
-    pub fn insert_overflowing_indices(&mut self, overflowing_indices: Vec<usize>, vertical: bool) {}
+    pub fn insert_overflowing_indices(&mut self, overflowing_indices: Vec<usize>, vertical: bool) {
+        let mut seams: Vec<Seam> = if vertical {
+            std::mem::replace(&mut self.vertical_seams, Vec::new())
+        } else {
+            std::mem::replace(&mut self.horizontal_seams, Vec::new())
+        };
+        let seams_len = seams.len();
+        overflowing_indices
+            .iter()
+            .take(seams_len)
+            .enumerate()
+            .for_each(|(index, index_to_insert)| {
+                let seam = seams
+                    .get_mut(seams_len - overflowing_indices.len() + index)
+                    .unwrap();
+                let mut prev_index: Option<usize> = None;
+                seam.indices
+                    .iter_mut()
+                    .for_each(|original_index| match prev_index {
+                        Some(prev_index_value) => {
+                            let temp = *original_index;
+                            *original_index = prev_index_value;
+                            prev_index = Some(temp);
+                        }
+                        None => {
+                            if *original_index >= *index_to_insert {
+                                prev_index = Some(*original_index);
+                                *original_index = *index_to_insert;
+                            }
+                        }
+                    });
+                prev_index.inspect(|prev_index| {
+                    seam.indices.push(*prev_index);
+                });
+            });
+
+        let _ = std::mem::replace(
+            if vertical {
+                &mut self.vertical_seams
+            } else {
+                &mut self.horizontal_seams
+            },
+            seams,
+        );
+    }
 }
