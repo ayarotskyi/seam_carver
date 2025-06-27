@@ -259,8 +259,8 @@ impl Matrix<f32> {
 
         (HorizontalSeam { rows: rows }, total_energy)
     }
-    pub fn insert_vertical_seam(&mut self, rng: &mut ThreadRng) {
-        let columns = self.extract_vertical_seam(rng).0.columns;
+    pub fn insert_vertical_seam(&mut self, seam: VerticalSeam) {
+        let columns = seam.columns;
 
         let resulting_vector = columns
             .iter()
@@ -293,10 +293,10 @@ impl Matrix<f32> {
         self.vector = resulting_vector;
         self.width = self.width + 1;
     }
-    pub fn insert_horizontal_seam(&mut self, rng: &mut ThreadRng) {
+    pub fn insert_horizontal_seam(&mut self, seam: HorizontalSeam) {
         let height = self.height();
 
-        let rows = self.extract_horizontal_seam(rng).0.rows;
+        let rows = seam.rows;
 
         let column_vectors = rows
             .into_iter()
