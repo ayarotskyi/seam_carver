@@ -5,22 +5,19 @@ use ::rand::{rngs::ThreadRng, Rng};
 #[path = "../tests/matrix.rs"]
 mod matrix_tests;
 
-#[derive(Clone, Copy)]
-pub struct MemoryPoint<T> {
-    pub value: T,
-    pub original_index: usize,
-}
-
 #[derive(Clone)]
-pub struct Seam {
-    pub indices: Vec<usize>,
-    pub is_vertical: bool,
+pub struct HorizontalSeam {
+    rows: Vec<usize>,
+}
+#[derive(Clone)]
+pub struct VerticalSeam {
+    columns: Vec<usize>,
 }
 
 #[derive(Clone)]
 pub struct Matrix<T> {
     width: usize,
-    pub vector: Vec<MemoryPoint<T>>,
+    pub vector: Vec<T>,
 }
 impl<T> Matrix<T>
 where
@@ -35,98 +32,65 @@ where
     pub fn new(vector: Vec<T>, width: usize) -> Self {
         Matrix {
             width: width,
-            vector: vector
-                .into_iter()
-                .enumerate()
-                .map(|(index, value)| MemoryPoint {
-                    value: value,
-                    original_index: index,
-                })
-                .collect::<Vec<MemoryPoint<T>>>(),
-        }
-    }
-    pub fn from_memory_points(vector: Vec<MemoryPoint<T>>, width: usize) -> Self {
-        Matrix {
-            width: width,
             vector: vector,
         }
     }
-    fn carve_horizontal_seam(&mut self, seam: &Seam) {
-        let height = self.height();
-
-        let column_vectors: Vec<Vec<MemoryPoint<T>>> = (0..self.width)
+    pub fn carve_horizontal_seam(&mut self, seam: &HorizontalSeam) {
+        let column_vectors: Vec<Vec<T>> = (0..self.width)
             .into_par_iter()
             .map(|column| {
-                let mut vector_result = Vec::with_capacity(self.height() - 1);
-                for row in 0..height {
-                    let memory_point = self.vector[row * self.width + column];
-                    if seam.indices[column] != memory_point.original_index {
-                        vector_result.push(self.vector[row * self.width + column]);
-                    }
-                }
+                let mut vector_result: Vec<T> = self
+                    .vector
+                    .iter()
+                    .skip(column)
+                    .step_by(self.width)
+                    .cloned()
+                    .collect();
+                let row = seam.rows[column];
+                vector_result.remove(row);
 
                 return vector_result;
             })
-            .collect::<Vec<Vec<MemoryPoint<T>>>>();
+            .collect::<Vec<Vec<T>>>();
 
         let result = (0..(self.height() - 1))
-            .into_par_iter()
+            .into_iter()
             .map(|row| {
                 column_vectors
                     .iter()
                     .map(|column_vector| column_vector[row])
-                    .collect::<Vec<MemoryPoint<T>>>()
+                    .collect::<Vec<T>>()
             })
-            .collect::<Vec<Vec<MemoryPoint<T>>>>()
+            .collect::<Vec<Vec<T>>>()
             .concat();
 
         self.vector = result;
     }
-    fn carve_vertical_seam(&mut self, seam: &Seam) {
-        let mut indices_to_remove = seam.indices.iter();
-
-        let mut resulting_vector: Vec<MemoryPoint<T>> =
-            Vec::with_capacity(self.vector.len() - self.height());
-
-        let mut index_to_remove = match indices_to_remove.next() {
-            None => {
-                return;
-            }
-            Some(index_to_remove) => *index_to_remove,
-        };
-
-        for memory_point in self.vector.iter() {
-            if index_to_remove == memory_point.original_index {
-                index_to_remove = match indices_to_remove.next() {
-                    None => {
-                        continue;
-                    }
-                    Some(index_to_remove) => *index_to_remove,
-                };
-                continue;
-            }
-            resulting_vector.push(*memory_point);
-        }
+    pub fn carve_vertical_seam(&mut self, seam: &VerticalSeam) {
+        let resulting_vector: Vec<T> = (0..self.height())
+            .map(|row| {
+                let mut row_vector = self
+                    .vector
+                    .iter()
+                    .skip(row * self.width)
+                    .take(self.width)
+                    .cloned()
+                    .collect::<Vec<T>>();
+                let column = seam.columns[row];
+                row_vector.remove(column);
+                return row_vector;
+            })
+            .collect::<Vec<Vec<T>>>()
+            .concat();
 
         self.vector = resulting_vector;
         self.width = self.width - 1;
     }
-    pub fn carve_seam(&mut self, seam: &Seam) {
-        if seam.is_vertical {
-            self.carve_vertical_seam(seam);
-        } else {
-            self.carve_horizontal_seam(seam);
-        }
-    }
 }
 
 impl Matrix<f32> {
-    pub fn extract_vertical_seam(&self, rng: &mut ThreadRng) -> (Seam, f32) {
-        let mut dp_result = self
-            .vector
-            .iter()
-            .map(|memory_point| memory_point.value)
-            .collect::<Vec<f32>>();
+    pub fn extract_vertical_seam(&self, rng: &mut ThreadRng) -> (VerticalSeam, f32) {
+        let mut dp_result = self.vector.clone();
         let width = self.width;
         let height = self.height();
 
@@ -148,88 +112,77 @@ impl Matrix<f32> {
             }
         }
 
-        let mut indices = vec![0; height];
+        let mut columns = vec![0; height];
+        let mut total_energy = 0.0;
 
         // calculate the last element in seam by randomly
         // selecting one of the minimum points in the last row
-        let mut min_indices = Vec::with_capacity(width);
+        let mut min_columns = Vec::with_capacity(width);
         let mut current_min = dp_result[(height - 1) * width];
         dp_result
             .iter()
-            .enumerate()
             .skip((height - 1) * width)
-            .for_each(|(index, value)| {
+            .enumerate()
+            .for_each(|(column, value)| {
                 if *value < current_min {
-                    min_indices.truncate(0);
-                    min_indices.push(index);
+                    min_columns.truncate(0);
+                    min_columns.push(column);
                     current_min = *value;
-                }
-                if *value == current_min {
-                    min_indices.push(index);
+                } else if *value == current_min {
+                    min_columns.push(column);
                 }
             });
-        indices[height - 1] = min_indices[rng.gen_range(0..min_indices.len())];
+        let last_column = min_columns[rng.gen_range(0..min_columns.len())];
+        columns[height - 1] = last_column;
+        total_energy = total_energy + self.vector[self.vector.len() - self.width + last_column];
 
         // calculate the rest of the indexes for the seam
-        for i in (0..height - 1).rev() {
-            let index = {
-                let mid_index = indices[i + 1] - width;
-                let left_index = if mid_index == i * width {
-                    mid_index
+        for row in (0..height - 1).rev() {
+            let column = {
+                let mid_column = columns[row + 1];
+                let left_column = if mid_column == 0 {
+                    mid_column
                 } else {
-                    mid_index - 1
+                    mid_column - 1
                 };
 
-                let mut min_index = if dp_result[left_index] < dp_result[mid_index] {
-                    left_index
+                let mut min_column = if dp_result[row * self.width + left_column]
+                    < dp_result[row * self.width + mid_column]
+                {
+                    left_column
                 } else {
-                    mid_index
+                    mid_column
                 };
 
-                let right_index = if mid_index == width * (i + 1) - 1 {
-                    mid_index
+                let right_column = if mid_column == width - 1 {
+                    mid_column
                 } else {
-                    mid_index + 1
+                    mid_column + 1
                 };
 
-                min_index = if dp_result[min_index] < dp_result[right_index] {
-                    min_index
+                min_column = if dp_result[row * self.width + min_column]
+                    < dp_result[row * self.width + right_column]
+                {
+                    min_column
                 } else {
-                    right_index
+                    right_column
                 };
-
-                min_index
+                min_column
             };
-            indices[i] = index;
+            columns[row] = column;
+            total_energy = total_energy + self.vector[self.width * row + column];
         }
 
-        (
-            Seam {
-                indices: indices
-                    .iter()
-                    .map(|index| self.vector[*index].original_index)
-                    .collect(),
-                is_vertical: true,
-            },
-            indices
-                .iter()
-                .map(|index| self.vector[*index].value)
-                .reduce(|acc, value| acc + value)
-                .unwrap(),
-        )
+        (VerticalSeam { columns: columns }, total_energy)
     }
-    pub fn extract_horizontal_seam(&self, rng: &mut ThreadRng) -> (Seam, f32) {
-        let mut dp_result = self
-            .vector
-            .iter()
-            .map(|memory_point| memory_point.value)
-            .collect::<Vec<f32>>();
+    pub fn extract_horizontal_seam(&self, rng: &mut ThreadRng) -> (HorizontalSeam, f32) {
+        let mut dp_result = self.vector.clone();
         let width = self.width;
         let height = self.vector.len() / width;
 
         // fill in the vector using dynamic programming
-        for i in 0..height {
-            for j in 1..width {
+        for j in 1..width {
+            for i in 0..height {
                 dp_result[i * width + j] = dp_result[i * width + j - 1]
                     .min(if i == 0 {
                         dp_result[i * width + j - 1]
@@ -245,76 +198,66 @@ impl Matrix<f32> {
             }
         }
 
-        let mut indices = vec![0; width];
+        let mut rows = vec![0; width];
+        let mut total_energy = 0.0;
 
         // calculate the last element in seam by randomly
         // selecting one of the minimum points in the last column
-        let mut min_indices = Vec::with_capacity(height);
+        let mut min_rows = Vec::with_capacity(height);
         let mut current_min = dp_result[width - 1];
         dp_result
             .iter()
-            .enumerate()
             .skip(width - 1)
             .step_by(width)
-            .for_each(|(index, value)| {
+            .enumerate()
+            .for_each(|(row, value)| {
                 if *value < current_min {
-                    min_indices.truncate(0);
-                    min_indices.push(index);
+                    min_rows.truncate(0);
+                    min_rows.push(row);
                     current_min = *value;
-                }
-                if *value == current_min {
-                    min_indices.push(index);
+                } else if *value == current_min {
+                    min_rows.push(row);
                 }
             });
-        indices[width - 1] = min_indices[rng.gen_range(0..min_indices.len())];
+        let last_row = min_rows[rng.gen_range(0..min_rows.len())];
+        rows[width - 1] = last_row;
+        total_energy = total_energy + self.vector[self.width * (last_row + 1) - 1];
 
         // calculate the rest of the indexes for the seam
-        for i in (0..width - 1).rev() {
-            let index = {
-                let mid_index = indices[i + 1] - 1;
-                let top_index = if mid_index >= width {
-                    mid_index - width
+        for column in (0..width - 1).rev() {
+            let row = {
+                let mid_row = rows[column + 1];
+                let top_row = if mid_row > 0 { mid_row - 1 } else { mid_row };
+
+                let mut min_row = if dp_result[self.width * top_row + column]
+                    < dp_result[self.width * mid_row + column]
+                {
+                    top_row
                 } else {
-                    mid_index
+                    mid_row
                 };
 
-                let mut min_index = if dp_result[top_index] < dp_result[mid_index] {
-                    top_index
+                let bottom_row = if mid_row >= height - 1 {
+                    mid_row
                 } else {
-                    mid_index
+                    mid_row + 1
                 };
 
-                let bottom_index = if mid_index >= self.vector.len() - width {
-                    mid_index
+                min_row = if dp_result[self.width * min_row + column]
+                    < dp_result[self.width * bottom_row + column]
+                {
+                    min_row
                 } else {
-                    mid_index + width
+                    bottom_row
                 };
 
-                min_index = if dp_result[min_index] < dp_result[bottom_index] {
-                    min_index
-                } else {
-                    bottom_index
-                };
-
-                min_index
+                min_row
             };
-            indices[i] = index;
+            rows[column] = row;
+            total_energy = total_energy + self.vector[self.width * row + column];
         }
 
-        (
-            Seam {
-                indices: indices
-                    .iter()
-                    .map(|index| self.vector[*index].original_index)
-                    .collect(),
-                is_vertical: false,
-            },
-            indices
-                .iter()
-                .map(|index| self.vector[*index].value)
-                .reduce(|acc, value| acc + value)
-                .unwrap(),
-        )
+        (HorizontalSeam { rows: rows }, total_energy)
     }
     pub fn insert_vertical_seam(&mut self, rng: &mut ThreadRng) {}
     pub fn insert_horizontal_seam(&mut self, rng: &mut ThreadRng) {}

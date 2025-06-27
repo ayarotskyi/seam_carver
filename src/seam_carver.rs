@@ -1,4 +1,4 @@
-use crate::{structs::matrix::Seam, utils::*, WindowSize};
+use crate::{utils::*, WindowSize};
 use ::rand::thread_rng;
 use macroquad::texture::Image;
 use std::{
@@ -43,10 +43,12 @@ pub fn spawn_seam_carver(
                     continue;
                 }
 
-                let lesser_energy_seam: Seam = if window_size.width >= energy_matrix.width() {
-                    energy_matrix.extract_horizontal_seam(&mut rng).0
+                if window_size.width >= energy_matrix.width() {
+                    let seam = energy_matrix.extract_horizontal_seam(&mut rng).0;
+                    carved_image_matrix.carve_horizontal_seam(&seam);
                 } else if window_size.height >= energy_matrix.height() {
-                    energy_matrix.extract_vertical_seam(&mut rng).0
+                    let seam = energy_matrix.extract_vertical_seam(&mut rng).0;
+                    carved_image_matrix.carve_vertical_seam(&seam);
                 } else {
                     let (vertical_seam, vertical_seam_energy) =
                         energy_matrix.extract_vertical_seam(&mut rng);
@@ -54,13 +56,12 @@ pub fn spawn_seam_carver(
                         energy_matrix.extract_horizontal_seam(&mut rng);
 
                     if vertical_seam_energy < horizontal_seam_energy {
-                        vertical_seam
+                        carved_image_matrix.carve_vertical_seam(&vertical_seam);
                     } else {
-                        horizontal_seam
+                        carved_image_matrix.carve_horizontal_seam(&horizontal_seam);
                     }
                 };
 
-                carved_image_matrix.carve_seam(&lesser_energy_seam);
                 energy_matrix = gradient_magnitude(&grayscale(&carved_image_matrix));
 
                 match displayed_image_clone.try_write() {

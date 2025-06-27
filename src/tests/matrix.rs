@@ -1,7 +1,7 @@
 use ::rand::thread_rng;
 use std::fmt::Debug;
 
-use crate::structs::matrix::{Matrix, MemoryPoint, Seam};
+use crate::structs::matrix::{HorizontalSeam, Matrix, VerticalSeam};
 
 impl<T: PartialEq> PartialEq for Matrix<T> {
     fn eq(&self, other: &Self) -> bool {
@@ -10,9 +10,7 @@ impl<T: PartialEq> PartialEq for Matrix<T> {
         }
 
         for index in 0..self.vector.len() {
-            if self.vector[index].value != other.vector[index].value
-                && self.vector[index].original_index != other.vector[index].original_index
-            {
+            if self.vector[index] != other.vector[index] {
                 return false;
             }
         }
@@ -64,7 +62,7 @@ fn draw_matrix(matrix: Matrix<BgColor>) -> String {
 
     for row in matrix.vector.chunks(matrix.width) {
         for bg_color in row {
-            result.push_str(&bg_color.value.to_string());
+            result.push_str(&bg_color.to_string());
         }
         result.push_str("\n");
     }
@@ -110,9 +108,8 @@ fn horizontal_carving() {
         4,
     );
     let mut output = matrix.clone();
-    output.carve_seam(&Seam {
-        indices: vec![0, 5, 6, 11],
-        is_vertical: false,
+    output.carve_horizontal_seam(&HorizontalSeam {
+        rows: vec![0, 1, 1, 2],
     });
     assert_matrices_equal(
         matrix,
@@ -161,71 +158,8 @@ fn vertical_carving() {
         4,
     );
     let mut output = matrix.clone();
-    output.carve_seam(&Seam {
-        indices: vec![0, 5, 10, 15],
-        is_vertical: true,
-    });
-    assert_matrices_equal(
-        matrix,
-        output,
-        Matrix::new(
-            Vec::from([
-                BgColor::Red,
-                BgColor::Green,
-                BgColor::Yellow,
-                BgColor::Blue,
-                BgColor::Red,
-                BgColor::White,
-                BgColor::Cyan,
-                BgColor::Black,
-                BgColor::Yellow,
-                BgColor::Cyan,
-                BgColor::Red,
-                BgColor::Green,
-            ]),
-            3,
-        ),
-    );
-}
-
-// after horizontal carving not all original indices are ordered,
-// which caused bugs in previous versions of the vertical carver
-#[test]
-fn vertical_seam_carving_unordered() {
-    let matrix = Matrix::from_memory_points(
-        Vec::from([
-            BgColor::Black,
-            BgColor::Red,
-            BgColor::Green,
-            BgColor::Yellow,
-            BgColor::Blue,
-            BgColor::Magenta,
-            BgColor::Red,
-            BgColor::White,
-            BgColor::Cyan,
-            BgColor::Black,
-            BgColor::Blue,
-            BgColor::Yellow,
-            BgColor::Cyan,
-            BgColor::Red,
-            BgColor::Green,
-            BgColor::White,
-        ])
-        .iter()
-        .zip(Vec::from([
-            0, 5, 2, 3, 4, 9, 6, 7, 8, 13, 10, 11, 12, 17, 14, 15,
-        ]))
-        .map(|(color, original_index)| MemoryPoint {
-            value: *color,
-            original_index: original_index,
-        })
-        .collect(),
-        4,
-    );
-    let mut output = matrix.clone();
-    output.carve_seam(&Seam {
-        indices: vec![0, 9, 10, 15],
-        is_vertical: true,
+    output.carve_vertical_seam(&VerticalSeam {
+        columns: vec![0, 1, 2, 3],
     });
     assert_matrices_equal(
         matrix,
@@ -255,8 +189,9 @@ fn horizontal_seam_extraction() {
     let mut rng = thread_rng();
     let energy_matrix: Matrix<f32> =
         Matrix::new(Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0]), 3);
-    let (seam, _) = energy_matrix.extract_horizontal_seam(&mut rng);
-    assert_eq!(seam.indices, [0, 4, 8]);
+    let (seam, total_energy) = energy_matrix.extract_horizontal_seam(&mut rng);
+    assert_eq!(seam.rows, [0, 1, 2]);
+    assert_eq!(total_energy, 0.0);
 }
 
 #[test]
@@ -264,8 +199,9 @@ fn vertical_seam_extraction() {
     let mut rng = thread_rng();
     let energy_matrix: Matrix<f32> =
         Matrix::new(Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0]), 3);
-    let (seam, _) = energy_matrix.extract_vertical_seam(&mut rng);
-    assert_eq!(seam.indices, [0, 4, 8]);
+    let (seam, total_energy) = energy_matrix.extract_vertical_seam(&mut rng);
+    assert_eq!(seam.columns, [0, 1, 2]);
+    assert_eq!(total_energy, 0.0);
 }
 
 #[test]
@@ -277,11 +213,7 @@ fn vertical_seam_insertion() {
     energy_matrix.insert_vertical_seam(&mut rng);
 
     assert_eq!(
-        energy_matrix
-            .vector
-            .iter()
-            .map(|memory_point| memory_point.value)
-            .collect::<Vec<f32>>(),
+        energy_matrix.vector,
         Vec::from([0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0,])
     );
 }
@@ -295,11 +227,7 @@ fn horizontal_seam_insertion() {
     energy_matrix.insert_vertical_seam(&mut rng);
 
     assert_eq!(
-        energy_matrix
-            .vector
-            .iter()
-            .map(|memory_point| memory_point.value)
-            .collect::<Vec<f32>>(),
+        energy_matrix.vector,
         Vec::from([0.0, 0.5, 1.0, 2.0, 0.0, 0.5, 1.0, 2.0, 0.0, 0.5, 1.0, 2.0])
     );
 }
