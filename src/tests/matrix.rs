@@ -208,20 +208,6 @@ fn vertical_seam_extraction() {
 fn vertical_seam_insertion() {
     let mut rng = thread_rng();
     let mut energy_matrix =
-        Matrix::new(Vec::from([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0]), 3);
-
-    energy_matrix.insert_vertical_seam(&mut rng);
-
-    assert_eq!(
-        energy_matrix.vector,
-        Vec::from([0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0,])
-    );
-}
-
-#[test]
-fn horizontal_seam_insertion() {
-    let mut rng = thread_rng();
-    let mut energy_matrix =
         Matrix::new(Vec::from([0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0]), 3);
 
     energy_matrix.insert_vertical_seam(&mut rng);
@@ -229,5 +215,19 @@ fn horizontal_seam_insertion() {
     assert_eq!(
         energy_matrix.vector,
         Vec::from([0.0, 0.5, 1.0, 2.0, 0.0, 0.5, 1.0, 2.0, 0.0, 0.5, 1.0, 2.0])
+    );
+}
+
+#[test]
+fn horizontal_seam_insertion() {
+    let mut rng = thread_rng();
+    let mut energy_matrix =
+        Matrix::new(Vec::from([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0]), 3);
+
+    energy_matrix.insert_horizontal_seam(&mut rng);
+
+    assert_eq!(
+        energy_matrix.vector,
+        Vec::from([0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0,])
     );
 }
