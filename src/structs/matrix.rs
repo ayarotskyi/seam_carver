@@ -293,5 +293,48 @@ impl Matrix<f32> {
         self.vector = resulting_vector;
         self.width = self.width + 1;
     }
-    pub fn insert_horizontal_seam(&mut self, rng: &mut ThreadRng) {}
+    pub fn insert_horizontal_seam(&mut self, rng: &mut ThreadRng) {
+        let height = self.height();
+
+        let rows = self.extract_horizontal_seam(rng).0.rows;
+
+        let column_vectors = rows
+            .into_iter()
+            .enumerate()
+            .map(|(column, row)| {
+                let avg = {
+                    let fold = self
+                        .vector
+                        .iter()
+                        .skip(self.width * (if row > 0 { row - 1 } else { row }) + column)
+                        .step_by(self.width)
+                        .take((height - row).min(if row > 0 { 3 } else { 2 }))
+                        .fold((0, 0.0), |acc, value| (acc.0 + 1, acc.1 + *value));
+                    fold.1 / (fold.0 as f32)
+                };
+
+                let mut column_vector = self
+                    .vector
+                    .iter()
+                    .cloned()
+                    .skip(column)
+                    .step_by(self.width)
+                    .collect::<Vec<f32>>();
+                column_vector.insert(row + 1, avg);
+                return column_vector;
+            })
+            .collect::<Vec<Vec<f32>>>();
+
+        let result = (0..(height + 1))
+            .into_iter()
+            .map(|row| {
+                column_vectors
+                    .iter()
+                    .map(|column_vector| column_vector[row])
+                    .collect::<Vec<f32>>()
+            })
+            .collect::<Vec<Vec<f32>>>()
+            .concat();
+        self.vector = result;
+    }
 }
