@@ -270,10 +270,11 @@ fn vertical_seam_extraction() {
 
 #[test]
 fn vertical_seam_insertion() {
+    let mut rng = thread_rng();
     let mut energy_matrix =
         Matrix::new(Vec::from([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0]), 3);
 
-    energy_matrix.insert_vertical_seam();
+    energy_matrix.insert_vertical_seam(&mut rng);
 
     assert_eq!(
         energy_matrix
@@ -287,10 +288,11 @@ fn vertical_seam_insertion() {
 
 #[test]
 fn horizontal_seam_insertion() {
+    let mut rng = thread_rng();
     let mut energy_matrix =
         Matrix::new(Vec::from([0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0]), 3);
 
-    energy_matrix.insert_vertical_seam();
+    energy_matrix.insert_vertical_seam(&mut rng);
 
     assert_eq!(
         energy_matrix

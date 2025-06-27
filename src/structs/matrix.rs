@@ -316,6 +316,6 @@ impl Matrix<f32> {
                 .unwrap(),
         )
     }
-    pub fn insert_vertical_seam(&mut self) {}
-    pub fn insert_horizontal_seam(&mut self) {}
+    pub fn insert_vertical_seam(&mut self, rng: &mut ThreadRng) {}
+    pub fn insert_horizontal_seam(&mut self, rng: &mut ThreadRng) {}
 }
