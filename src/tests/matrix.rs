@@ -267,3 +267,37 @@ fn vertical_seam_extraction() {
     let (seam, _) = energy_matrix.extract_vertical_seam(&mut rng);
     assert_eq!(seam.indices, [0, 4, 8]);
 }
+
+#[test]
+fn vertical_seam_insertion() {
+    let mut energy_matrix =
+        Matrix::new(Vec::from([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0]), 3);
+
+    energy_matrix.insert_vertical_seam();
+
+    assert_eq!(
+        energy_matrix
+            .vector
+            .iter()
+            .map(|memory_point| memory_point.value)
+            .collect::<Vec<f32>>(),
+        Vec::from([0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0,])
+    );
+}
+
+#[test]
+fn horizontal_seam_insertion() {
+    let mut energy_matrix =
+        Matrix::new(Vec::from([0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0]), 3);
+
+    energy_matrix.insert_vertical_seam();
+
+    assert_eq!(
+        energy_matrix
+            .vector
+            .iter()
+            .map(|memory_point| memory_point.value)
+            .collect::<Vec<f32>>(),
+        Vec::from([0.0, 0.5, 1.0, 2.0, 0.0, 0.5, 1.0, 2.0, 0.0, 0.5, 1.0, 2.0])
+    );
+}
