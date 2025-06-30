@@ -1,4 +1,5 @@
 use ::rand::thread_rng;
+use macroquad::color::Color;
 use std::fmt::Debug;
 
 use crate::structs::matrix::{HorizontalSeam, Matrix, VerticalSeam};
@@ -206,30 +207,123 @@ fn vertical_seam_extraction() {
 
 #[test]
 fn vertical_seam_insertion() {
-    let mut rng = thread_rng();
-    let mut energy_matrix =
-        Matrix::new(Vec::from([0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0]), 3);
+    let first_color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 100.0,
+    };
+    let second_color = Color {
+        r: 100.0,
+        g: 100.0,
+        b: 100.0,
+        a: 100.0,
+    };
+    let mid_color = Color {
+        r: 50.0,
+        g: 50.0,
+        b: 50.0,
+        a: 100.0,
+    };
+    let mut matrix = Matrix::new(
+        Vec::from([
+            first_color,
+            second_color,
+            second_color,
+            first_color,
+            second_color,
+            second_color,
+            first_color,
+            second_color,
+            second_color,
+        ]),
+        3,
+    );
 
-    let seam = energy_matrix.extract_vertical_seam(&mut rng).0;
-    energy_matrix.insert_vertical_seam(seam);
+    let seam = VerticalSeam {
+        columns: Vec::from([0, 0, 0]),
+    };
+    matrix.insert_vertical_seam(seam);
 
     assert_eq!(
-        energy_matrix.vector,
-        Vec::from([0.0, 0.5, 1.0, 2.0, 0.0, 0.5, 1.0, 2.0, 0.0, 0.5, 1.0, 2.0])
+        matrix.vector,
+        Vec::from([
+            first_color,
+            mid_color,
+            second_color,
+            second_color,
+            first_color,
+            mid_color,
+            second_color,
+            second_color,
+            first_color,
+            mid_color,
+            second_color,
+            second_color,
+        ])
     );
 }
 
 #[test]
 fn horizontal_seam_insertion() {
-    let mut rng = thread_rng();
-    let mut energy_matrix =
-        Matrix::new(Vec::from([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0]), 3);
+    let first_color = Color {
+        r: 50.0,
+        g: 50.0,
+        b: 50.0,
+        a: 100.0,
+    };
+    let second_color = Color {
+        r: 100.0,
+        g: 100.0,
+        b: 100.0,
+        a: 100.0,
+    };
+    let third_color = Color {
+        r: 150.0,
+        g: 150.0,
+        b: 150.0,
+        a: 100.0,
+    };
+    let mut matrix = Matrix::new(
+        Vec::from([
+            first_color,
+            second_color,
+            third_color,
+            second_color,
+            first_color,
+            third_color,
+            third_color,
+            second_color,
+            third_color,
+        ]),
+        3,
+    );
 
-    let seam = energy_matrix.extract_horizontal_seam(&mut rng).0;
-    energy_matrix.insert_horizontal_seam(seam);
+    let seam = HorizontalSeam {
+        rows: Vec::from([1, 0, 1]),
+    };
+    matrix.insert_horizontal_seam(seam);
 
     assert_eq!(
-        energy_matrix.vector,
-        Vec::from([0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0,])
+        matrix.vector,
+        Vec::from([
+            first_color,
+            second_color,
+            third_color,
+            second_color,
+            Color {
+                r: 75.0,
+                g: 75.0,
+                b: 75.0,
+                a: 100.0
+            },
+            third_color,
+            second_color,
+            first_color,
+            third_color,
+            third_color,
+            second_color,
+            third_color,
+        ])
     );
 }

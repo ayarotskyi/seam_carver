@@ -259,6 +259,9 @@ impl Matrix<f32> {
 
         (HorizontalSeam { rows: rows }, total_energy)
     }
+}
+
+impl Matrix<Color> {
     pub fn insert_vertical_seam(&mut self, seam: VerticalSeam) {
         let columns = seam.columns;
 
@@ -273,8 +276,23 @@ impl Matrix<f32> {
                         .iter()
                         .skip(self.width * row + (if column > 0 { column - 1 } else { column }))
                         .take((self.width - column).min(if column > 0 { 3 } else { 2 }))
-                        .fold((0, 0.0), |acc, value| (acc.0 + 1, acc.1 + *value));
-                    fold.1 / (fold.0 as f32)
+                        .fold((0, (0.0, 0.0, 0.0, 0.0)), |acc, value| {
+                            (
+                                acc.0 + 1,
+                                (
+                                    acc.1 .0 + value.r,
+                                    acc.1 .1 + value.g,
+                                    acc.1 .2 + value.b,
+                                    acc.1 .3 + value.a,
+                                ),
+                            )
+                        });
+                    Color {
+                        r: fold.1 .0 / (fold.0 as f32),
+                        g: fold.1 .1 / (fold.0 as f32),
+                        b: fold.1 .2 / (fold.0 as f32),
+                        a: fold.1 .3 / (fold.0 as f32),
+                    }
                 };
 
                 let mut row_vector = self
@@ -283,11 +301,11 @@ impl Matrix<f32> {
                     .cloned()
                     .skip(self.width * row)
                     .take(self.width)
-                    .collect::<Vec<f32>>();
+                    .collect::<Vec<Color>>();
                 row_vector.insert(column + 1, avg);
                 return row_vector;
             })
-            .collect::<Vec<Vec<f32>>>()
+            .collect::<Vec<Vec<Color>>>()
             .concat();
 
         self.vector = resulting_vector;
@@ -303,14 +321,30 @@ impl Matrix<f32> {
             .enumerate()
             .map(|(column, row)| {
                 let avg = {
+                    let starting_row = if row > 0 { row - 1 } else { row };
                     let fold = self
                         .vector
                         .iter()
-                        .skip(self.width * (if row > 0 { row - 1 } else { row }) + column)
+                        .skip(self.width * starting_row + column)
                         .step_by(self.width)
-                        .take((height - row).min(if row > 0 { 3 } else { 2 }))
-                        .fold((0, 0.0), |acc, value| (acc.0 + 1, acc.1 + *value));
-                    fold.1 / (fold.0 as f32)
+                        .take((height - starting_row).min(if row > 0 { 3 } else { 2 }))
+                        .fold((0, (0.0, 0.0, 0.0, 0.0)), |acc, value| {
+                            (
+                                acc.0 + 1,
+                                (
+                                    acc.1 .0 + value.r,
+                                    acc.1 .1 + value.g,
+                                    acc.1 .2 + value.b,
+                                    acc.1 .3 + value.a,
+                                ),
+                            )
+                        });
+                    Color {
+                        r: fold.1 .0 / (fold.0 as f32),
+                        g: fold.1 .1 / (fold.0 as f32),
+                        b: fold.1 .2 / (fold.0 as f32),
+                        a: fold.1 .3 / (fold.0 as f32),
+                    }
                 };
 
                 let mut column_vector = self
@@ -319,11 +353,11 @@ impl Matrix<f32> {
                     .cloned()
                     .skip(column)
                     .step_by(self.width)
-                    .collect::<Vec<f32>>();
+                    .collect::<Vec<Color>>();
                 column_vector.insert(row + 1, avg);
                 return column_vector;
             })
-            .collect::<Vec<Vec<f32>>>();
+            .collect::<Vec<Vec<Color>>>();
 
         let result = (0..(height + 1))
             .into_iter()
@@ -331,9 +365,9 @@ impl Matrix<f32> {
                 column_vectors
                     .iter()
                     .map(|column_vector| column_vector[row])
-                    .collect::<Vec<f32>>()
+                    .collect::<Vec<Color>>()
             })
-            .collect::<Vec<Vec<f32>>>()
+            .collect::<Vec<Vec<Color>>>()
             .concat();
         self.vector = result;
     }
