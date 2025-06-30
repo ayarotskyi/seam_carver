@@ -25,42 +25,50 @@ pub fn spawn_seam_carver(
                     Ok(next_window_size) => {
                         if *next_window_size != window_size {
                             window_size = next_window_size.clone();
-                            if window_size.height >= energy_matrix.height()
-                                && window_size.width >= energy_matrix.width()
-                            {
-                                energy_matrix = gradient_magnitude(&grayscale(&image_matrix));
-                                carved_image_matrix = image_matrix.clone();
-                                continue;
-                            }
                         }
                     }
                     Err(_) => {}
                 };
 
-                if window_size.width >= energy_matrix.width()
-                    && window_size.height >= energy_matrix.height()
+                if window_size.width == energy_matrix.width()
+                    && window_size.height == energy_matrix.height()
                 {
                     continue;
                 }
 
-                if window_size.width >= energy_matrix.width() {
-                    let seam = energy_matrix.extract_horizontal_seam(&mut rng).0;
-                    carved_image_matrix.carve_horizontal_seam(&seam);
-                } else if window_size.height >= energy_matrix.height() {
+                if window_size.height == energy_matrix.height() {
                     let seam = energy_matrix.extract_vertical_seam(&mut rng).0;
-                    carved_image_matrix.carve_vertical_seam(&seam);
+                    if window_size.width < energy_matrix.width() {
+                        carved_image_matrix.carve_vertical_seam(&seam);
+                    } else {
+                        carved_image_matrix.insert_vertical_seam(&seam);
+                    }
+                } else if window_size.width == energy_matrix.width() {
+                    let seam = energy_matrix.extract_horizontal_seam(&mut rng).0;
+                    if window_size.height < energy_matrix.height() {
+                        carved_image_matrix.carve_horizontal_seam(&seam);
+                    } else {
+                        carved_image_matrix.insert_horizontal_seam(&seam);
+                    }
                 } else {
                     let (vertical_seam, vertical_seam_energy) =
                         energy_matrix.extract_vertical_seam(&mut rng);
                     let (horizontal_seam, horizontal_seam_energy) =
                         energy_matrix.extract_horizontal_seam(&mut rng);
-
                     if vertical_seam_energy < horizontal_seam_energy {
-                        carved_image_matrix.carve_vertical_seam(&vertical_seam);
+                        if window_size.width < energy_matrix.width() {
+                            carved_image_matrix.carve_vertical_seam(&vertical_seam);
+                        } else {
+                            carved_image_matrix.insert_vertical_seam(&vertical_seam);
+                        }
                     } else {
-                        carved_image_matrix.carve_horizontal_seam(&horizontal_seam);
+                        if window_size.height < energy_matrix.height() {
+                            carved_image_matrix.carve_horizontal_seam(&horizontal_seam);
+                        } else {
+                            carved_image_matrix.insert_horizontal_seam(&horizontal_seam);
+                        }
                     }
-                };
+                }
 
                 energy_matrix = gradient_magnitude(&grayscale(&carved_image_matrix));
 
