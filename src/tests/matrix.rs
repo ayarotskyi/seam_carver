@@ -243,7 +243,7 @@ fn vertical_seam_insertion() {
     let seam = VerticalSeam {
         columns: Vec::from([0, 0, 0]),
     };
-    matrix.insert_vertical_seam(seam);
+    matrix.insert_vertical_seam(&seam);
 
     assert_eq!(
         matrix.vector,
@@ -302,7 +302,7 @@ fn horizontal_seam_insertion() {
     let seam = HorizontalSeam {
         rows: Vec::from([1, 0, 1]),
     };
-    matrix.insert_horizontal_seam(seam);
+    matrix.insert_horizontal_seam(&seam);
 
     assert_eq!(
         matrix.vector,

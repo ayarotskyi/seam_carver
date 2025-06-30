@@ -262,8 +262,8 @@ impl Matrix<f32> {
 }
 
 impl Matrix<Color> {
-    pub fn insert_vertical_seam(&mut self, seam: VerticalSeam) {
-        let columns = seam.columns;
+    pub fn insert_vertical_seam(&mut self, seam: &VerticalSeam) {
+        let columns = &seam.columns;
 
         let resulting_vector = columns
             .iter()
@@ -311,13 +311,14 @@ impl Matrix<Color> {
         self.vector = resulting_vector;
         self.width = self.width + 1;
     }
-    pub fn insert_horizontal_seam(&mut self, seam: HorizontalSeam) {
+    pub fn insert_horizontal_seam(&mut self, seam: &HorizontalSeam) {
         let height = self.height();
 
-        let rows = seam.rows;
+        let rows = &seam.rows;
 
         let column_vectors = rows
-            .into_iter()
+            .iter()
+            .cloned()
             .enumerate()
             .map(|(column, row)| {
                 let avg = {
