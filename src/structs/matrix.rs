@@ -39,7 +39,7 @@ where
     }
     pub fn carve_horizontal_seam(&mut self, seam: &HorizontalSeam) {
         let column_vectors: Vec<Vec<T>> = (0..self.width)
-            .into_par_iter()
+            .into_iter()
             .map(|column| {
                 let mut vector_result: Vec<T> = self
                     .vector

@@ -1,5 +1,4 @@
 use macroquad::prelude::*;
-use rayon::prelude::*;
 use std::{
     env,
     sync::{Arc, RwLock},

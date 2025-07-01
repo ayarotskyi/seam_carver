@@ -28,7 +28,7 @@ pub fn gradient_magnitude(matrix: &Matrix<CustomColor>) -> Matrix<GradientMagnit
     let height = matrix.height();
     result
         .vector
-        .par_chunks_exact_mut(width)
+        .chunks_exact_mut(width)
         .enumerate()
         .for_each(|(i, vector)| {
             for (j, point) in vector.iter_mut().enumerate() {
