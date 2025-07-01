@@ -1,8 +1,13 @@
 use ::rand::thread_rng;
-use macroquad::color::Color;
 use std::fmt::Debug;
 
-use crate::structs::matrix::{HorizontalSeam, Matrix, VerticalSeam};
+use crate::{
+    structs::{
+        color::CustomColor,
+        matrix::{HorizontalSeam, Matrix, VerticalSeam},
+    },
+    utils::GradientMagnitudePoint,
+};
 
 impl<T: PartialEq> PartialEq for Matrix<T> {
     fn eq(&self, other: &Self) -> bool {
@@ -188,9 +193,16 @@ fn vertical_carving() {
 #[test]
 fn horizontal_seam_extraction() {
     let mut rng = thread_rng();
-    let energy_matrix: Matrix<f32> =
-        Matrix::new(Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0]), 3);
-    let (seam, total_energy) = energy_matrix.extract_horizontal_seam(&mut rng);
+    let energy_matrix: Matrix<GradientMagnitudePoint> = Matrix::new(
+        Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0].map(|value| {
+            GradientMagnitudePoint {
+                value: value,
+                is_inserted: false,
+            }
+        })),
+        3,
+    );
+    let (seam, total_energy) = energy_matrix.extract_horizontal_seam(&mut rng, false);
     assert_eq!(seam.rows, [0, 1, 2]);
     assert_eq!(total_energy, 0.0);
 }
@@ -198,32 +210,39 @@ fn horizontal_seam_extraction() {
 #[test]
 fn vertical_seam_extraction() {
     let mut rng = thread_rng();
-    let energy_matrix: Matrix<f32> =
-        Matrix::new(Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0]), 3);
-    let (seam, total_energy) = energy_matrix.extract_vertical_seam(&mut rng);
+    let energy_matrix: Matrix<GradientMagnitudePoint> = Matrix::new(
+        Vec::from([0.0, 1.0, 3.0, 2.0, 0.0, 1.0, 3.0, 2.0, 0.0].map(|value| {
+            GradientMagnitudePoint {
+                value: value,
+                is_inserted: false,
+            }
+        })),
+        3,
+    );
+    let (seam, total_energy) = energy_matrix.extract_vertical_seam(&mut rng, false);
     assert_eq!(seam.columns, [0, 1, 2]);
     assert_eq!(total_energy, 0.0);
 }
 
 #[test]
 fn vertical_seam_insertion() {
-    let first_color = Color {
+    let first_color = CustomColor {
         r: 0.0,
         g: 0.0,
         b: 0.0,
-        a: 100.0,
+        is_inserted: false,
     };
-    let second_color = Color {
+    let second_color = CustomColor {
         r: 100.0,
         g: 100.0,
         b: 100.0,
-        a: 100.0,
+        is_inserted: false,
     };
-    let mid_color = Color {
+    let mid_color = CustomColor {
         r: 50.0,
         g: 50.0,
         b: 50.0,
-        a: 100.0,
+        is_inserted: false,
     };
     let mut matrix = Matrix::new(
         Vec::from([
@@ -266,23 +285,23 @@ fn vertical_seam_insertion() {
 
 #[test]
 fn horizontal_seam_insertion() {
-    let first_color = Color {
+    let first_color = CustomColor {
         r: 50.0,
         g: 50.0,
         b: 50.0,
-        a: 100.0,
+        is_inserted: false,
     };
-    let second_color = Color {
+    let second_color = CustomColor {
         r: 100.0,
         g: 100.0,
         b: 100.0,
-        a: 100.0,
+        is_inserted: false,
     };
-    let third_color = Color {
+    let third_color = CustomColor {
         r: 150.0,
         g: 150.0,
         b: 150.0,
-        a: 100.0,
+        is_inserted: false,
     };
     let mut matrix = Matrix::new(
         Vec::from([
@@ -311,11 +330,11 @@ fn horizontal_seam_insertion() {
             second_color,
             third_color,
             second_color,
-            Color {
+            CustomColor {
                 r: 75.0,
                 g: 75.0,
                 b: 75.0,
-                a: 100.0
+                is_inserted: false
             },
             third_color,
             second_color,

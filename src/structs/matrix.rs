@@ -1,4 +1,6 @@
-use crate::*;
+use std::f32::INFINITY;
+
+use crate::{structs::color::CustomColor, utils::GradientMagnitudePoint, *};
 use ::rand::{rngs::ThreadRng, Rng};
 
 #[cfg(test)]
@@ -7,11 +9,11 @@ mod matrix_tests;
 
 #[derive(Clone)]
 pub struct HorizontalSeam {
-    rows: Vec<usize>,
+    pub rows: Vec<usize>,
 }
 #[derive(Clone)]
 pub struct VerticalSeam {
-    columns: Vec<usize>,
+    pub columns: Vec<usize>,
 }
 
 #[derive(Clone)]
@@ -88,9 +90,27 @@ where
     }
 }
 
-impl Matrix<f32> {
-    pub fn extract_vertical_seam(&self, rng: &mut ThreadRng) -> (VerticalSeam, f32) {
-        let mut dp_result = self.vector.clone();
+impl Matrix<GradientMagnitudePoint> {
+    pub fn extract_vertical_seam(
+        &self,
+        rng: &mut ThreadRng,
+        avoid_inserted: bool,
+    ) -> (VerticalSeam, f32) {
+        let mut dp_result = self
+            .vector
+            .iter()
+            .map(|point| {
+                if point.is_inserted {
+                    if avoid_inserted {
+                        INFINITY
+                    } else {
+                        0.0
+                    }
+                } else {
+                    point.value
+                }
+            })
+            .collect::<Vec<f32>>();
         let width = self.width;
         let height = self.height();
 
@@ -134,7 +154,8 @@ impl Matrix<f32> {
             });
         let last_column = min_columns[rng.gen_range(0..min_columns.len())];
         columns[height - 1] = last_column;
-        total_energy = total_energy + self.vector[self.vector.len() - self.width + last_column];
+        total_energy =
+            total_energy + self.vector[self.vector.len() - self.width + last_column].value;
 
         // calculate the rest of the indexes for the seam
         for row in (0..height - 1).rev() {
@@ -170,13 +191,31 @@ impl Matrix<f32> {
                 min_column
             };
             columns[row] = column;
-            total_energy = total_energy + self.vector[self.width * row + column];
+            total_energy = total_energy + self.vector[self.width * row + column].value;
         }
 
         (VerticalSeam { columns: columns }, total_energy)
     }
-    pub fn extract_horizontal_seam(&self, rng: &mut ThreadRng) -> (HorizontalSeam, f32) {
-        let mut dp_result = self.vector.clone();
+    pub fn extract_horizontal_seam(
+        &self,
+        rng: &mut ThreadRng,
+        avoid_inserted: bool,
+    ) -> (HorizontalSeam, f32) {
+        let mut dp_result = self
+            .vector
+            .iter()
+            .map(|point| {
+                if point.is_inserted {
+                    if avoid_inserted {
+                        INFINITY
+                    } else {
+                        0.0
+                    }
+                } else {
+                    point.value
+                }
+            })
+            .collect::<Vec<f32>>();
         let width = self.width;
         let height = self.vector.len() / width;
 
@@ -221,7 +260,7 @@ impl Matrix<f32> {
             });
         let last_row = min_rows[rng.gen_range(0..min_rows.len())];
         rows[width - 1] = last_row;
-        total_energy = total_energy + self.vector[self.width * (last_row + 1) - 1];
+        total_energy = total_energy + self.vector[self.width * (last_row + 1) - 1].value;
 
         // calculate the rest of the indexes for the seam
         for column in (0..width - 1).rev() {
@@ -254,14 +293,14 @@ impl Matrix<f32> {
                 min_row
             };
             rows[column] = row;
-            total_energy = total_energy + self.vector[self.width * row + column];
+            total_energy = total_energy + self.vector[self.width * row + column].value;
         }
 
         (HorizontalSeam { rows: rows }, total_energy)
     }
 }
 
-impl Matrix<Color> {
+impl Matrix<CustomColor> {
     pub fn insert_vertical_seam(&mut self, seam: &VerticalSeam) {
         let columns = &seam.columns;
 
@@ -276,22 +315,17 @@ impl Matrix<Color> {
                         .iter()
                         .skip(self.width * row + (if column > 0 { column - 1 } else { column }))
                         .take((self.width - column).min(if column > 0 { 3 } else { 2 }))
-                        .fold((0, (0.0, 0.0, 0.0, 0.0)), |acc, value| {
+                        .fold((0, (0.0, 0.0, 0.0)), |acc, value| {
                             (
                                 acc.0 + 1,
-                                (
-                                    acc.1 .0 + value.r,
-                                    acc.1 .1 + value.g,
-                                    acc.1 .2 + value.b,
-                                    acc.1 .3 + value.a,
-                                ),
+                                (acc.1 .0 + value.r, acc.1 .1 + value.g, acc.1 .2 + value.b),
                             )
                         });
-                    Color {
+                    CustomColor {
                         r: fold.1 .0 / (fold.0 as f32),
                         g: fold.1 .1 / (fold.0 as f32),
                         b: fold.1 .2 / (fold.0 as f32),
-                        a: fold.1 .3 / (fold.0 as f32),
+                        is_inserted: true,
                     }
                 };
 
@@ -301,11 +335,15 @@ impl Matrix<Color> {
                     .cloned()
                     .skip(self.width * row)
                     .take(self.width)
-                    .collect::<Vec<Color>>();
+                    .collect::<Vec<CustomColor>>();
                 row_vector.insert(column + 1, avg);
+                row_vector[column].is_inserted = true;
+                if column < row_vector.len() - 2 {
+                    row_vector[column + 2].is_inserted = true;
+                }
                 return row_vector;
             })
-            .collect::<Vec<Vec<Color>>>()
+            .collect::<Vec<Vec<CustomColor>>>()
             .concat();
 
         self.vector = resulting_vector;
@@ -329,22 +367,17 @@ impl Matrix<Color> {
                         .skip(self.width * starting_row + column)
                         .step_by(self.width)
                         .take((height - starting_row).min(if row > 0 { 3 } else { 2 }))
-                        .fold((0, (0.0, 0.0, 0.0, 0.0)), |acc, value| {
+                        .fold((0, (0.0, 0.0, 0.0)), |acc, value| {
                             (
                                 acc.0 + 1,
-                                (
-                                    acc.1 .0 + value.r,
-                                    acc.1 .1 + value.g,
-                                    acc.1 .2 + value.b,
-                                    acc.1 .3 + value.a,
-                                ),
+                                (acc.1 .0 + value.r, acc.1 .1 + value.g, acc.1 .2 + value.b),
                             )
                         });
-                    Color {
+                    CustomColor {
                         r: fold.1 .0 / (fold.0 as f32),
                         g: fold.1 .1 / (fold.0 as f32),
                         b: fold.1 .2 / (fold.0 as f32),
-                        a: fold.1 .3 / (fold.0 as f32),
+                        is_inserted: true,
                     }
                 };
 
@@ -354,11 +387,15 @@ impl Matrix<Color> {
                     .cloned()
                     .skip(column)
                     .step_by(self.width)
-                    .collect::<Vec<Color>>();
+                    .collect::<Vec<CustomColor>>();
                 column_vector.insert(row + 1, avg);
+                column_vector[row].is_inserted = true;
+                if row < column_vector.len() - 2 {
+                    column_vector[row + 2].is_inserted = true;
+                }
                 return column_vector;
             })
-            .collect::<Vec<Vec<Color>>>();
+            .collect::<Vec<Vec<CustomColor>>>();
 
         let result = (0..(height + 1))
             .into_iter()
@@ -366,9 +403,9 @@ impl Matrix<Color> {
                 column_vectors
                     .iter()
                     .map(|column_vector| column_vector[row])
-                    .collect::<Vec<Color>>()
+                    .collect::<Vec<CustomColor>>()
             })
-            .collect::<Vec<Vec<Color>>>()
+            .collect::<Vec<Vec<CustomColor>>>()
             .concat();
         self.vector = result;
     }
